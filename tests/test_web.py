@@ -59,6 +59,95 @@ class WebTests(unittest.TestCase):
         self.assertEqual(web.classify_connection({'chains': []}), 'unknown')
         self.assertEqual(web.classify_connection({}), 'unknown')
 
+    def test_check_exit_ip_normalizes_ipapi_json(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b'{"ip":"2001:db8::1","country_name":"United Arab Emirates","city":"Al Fujairah City","timezone":"Asia/Dubai","utc_offset":"+0400"}'
+
+        class Opener:
+            def open(self, _request, timeout):
+                self.timeout = timeout
+                return Response()
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_exit_ip(3, 'ipapi')
+        self.assertEqual(result['ip'], '2001:db8::1')
+        self.assertEqual(result['version'], 6)
+        self.assertEqual(result['country'], 'United Arab Emirates')
+        self.assertEqual(result['city'], 'Al Fujairah City')
+        self.assertEqual(result['timezone'], 'Asia/Dubai')
+        self.assertEqual(result['utc_offset'], '+0400')
+        self.assertIsNone(result['error'])
+        self.assertEqual(opener.timeout, 3)
+
+    def test_check_exit_ip_reads_ipify_plain_text(self):
+        class Response:
+            def __init__(self, body):
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return self.body
+
+        class Opener:
+            def open(self, request, timeout):
+                self.url = request.full_url
+                self.timeout = timeout
+                return Response(b'2001:db8::2')
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_exit_ip(3, 'ipify')
+        self.assertEqual(result['ip'], '2001:db8::2')
+        self.assertIsNone(result['country'])
+        self.assertIsNone(result['city'])
+        self.assertIsNone(result['timezone'])
+        self.assertIsNone(result['utc_offset'])
+        self.assertEqual(opener.url, web.EXIT_IP_PROVIDERS['ipify'])
+        self.assertEqual(opener.timeout, 3)
+
+    def test_check_exit_ip_normalizes_ipwho_timezone(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b'{"ip":"2001:db8::2","country":"United Arab Emirates",' \
+                    b'"city":"Al Fujairah City","timezone":{"id":"Asia/Dubai",' \
+                    b'"utc":"+04:00"}}'
+
+        class Opener:
+            def open(self, _request, timeout):
+                self.timeout = timeout
+                return Response()
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_exit_ip(3, 'ipwho')
+        self.assertEqual(result['country'], 'United Arab Emirates')
+        self.assertEqual(result['city'], 'Al Fujairah City')
+        self.assertEqual(result['timezone'], 'Asia/Dubai')
+        self.assertEqual(result['utc_offset'], '+04:00')
+
+    def test_check_exit_ip_rejects_unknown_provider(self):
+        with self.assertRaisesRegex(RuntimeError, '不支持的 IP 查询服务'):
+            web.check_exit_ip(3, 'unknown')
+
     def test_collection_logs_keep_only_latest_200_entries(self):
         service = web.RecorderService()
         with service.lock:
@@ -115,6 +204,26 @@ class WebTests(unittest.TestCase):
         self.assertNotIn('<div class="top-status">', page)
         for endpoint in ('控制器实时状态', '活动连接', '控制器日志', '/traffic', '/logs', '/connections'):
             self.assertIn(endpoint, page)
+        for element_id in (
+            'exit-ip-ipify-ip', 'exit-ip-ipify-country', 'exit-ip-ipify-city',
+            'exit-ip-ipify-timezone', 'exit-ip-ipify-utc_offset', 'exit-ip-ipify-meta',
+            'exit-ip-ipapi-ip', 'exit-ip-ipapi-country', 'exit-ip-ipapi-city',
+            'exit-ip-ipapi-timezone', 'exit-ip-ipapi-utc_offset', 'exit-ip-ipapi-meta',
+            'exit-ip-ipwho-ip', 'exit-ip-ipwho-country', 'exit-ip-ipwho-city',
+            'exit-ip-ipwho-timezone', 'exit-ip-ipwho-utc_offset', 'exit-ip-ipwho-meta',
+        ):
+            self.assertIn(f'id="{element_id}"', page)
+        self.assertNotIn('<span class="exit-ip-cell">服务</span>', page)
+        self.assertIn('检测信息', page)
+        self.assertIn('<span class="exit-ip-cell">检测服务</span>', page)
+        for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is')):
+            self.assertIn(f'data-provider="{provider}"', page)
+            self.assertIn(f'>{label}</button>', page)
+        self.assertNotIn('>检测服务</button>', page)
+        self.assertNotIn('await refreshExitIp()', page)
+        for removed_control in ('id="select-all"', 'id="select-none"', 'id="select-toggle"', 'class="proxy-check'):
+            self.assertNotIn(removed_control, page)
+        self.assertNotIn('selection-count', page)
         for row_limit in ('collection-log-limit', 'connection-limit', 'controller-log-limit', 'value="10" selected'):
             self.assertIn(row_limit, page)
         for sort_header in ('data-sort-key="rate"', 'data-sort-key="average"', 'data-sort-key="jitter"', 'active-sorts', 'sort-order', 'sort-remove', '按成功率排序', '按平均延迟排序', '按抖动排序', 'aria-sort="none"'):
@@ -145,6 +254,30 @@ class WebTests(unittest.TestCase):
         self.assertTrue(payload['secret_configured'])
         self.assertEqual(payload['secret'], '')
         self.assertNotIn('private-key', json.dumps(payload))
+
+    def test_exit_ip_api_returns_probe_result(self):
+        with patch.object(
+            web,
+            'load_config',
+            return_value={'request_timeout': 2},
+        ), patch.object(
+            web,
+            'check_exit_ip',
+            return_value={
+                'ip': '203.0.113.10',
+                'version': 4,
+                'country': 'United States',
+                'city': 'New York',
+                'timezone': 'America/New_York',
+                'utc_offset': '-0400',
+                'checked_at': '2026-10-25T00:00:00Z',
+                'error': None,
+            },
+        ):
+            response = self.request('GET', '/api/exit-ip?provider=ipwho')
+        payload = json.loads(response.read())
+        self.assertEqual(response.status, 200)
+        self.assertEqual(payload['ip'], '203.0.113.10')
 
     def test_rejects_non_local_host(self):
         response = self.request('GET', '/api/state', headers={'Host': 'example.com'})

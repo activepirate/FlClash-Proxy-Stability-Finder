@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import math
 import threading
 import time
 import webbrowser
+from datetime import datetime, timezone
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
+from urllib.request import ProxyHandler, Request, build_opener
 
 from app.config import DEFAULTS, load_config, normalize_config, save_config
 from app.recorder import Controller, run_session, select_proxies, summarize
@@ -21,6 +24,11 @@ from app.recorder import Controller, run_session, select_proxies, summarize
 PAGE = Path(__file__).parent / 'web' / 'index.html'
 DIRECT_CHAINS = {'DIRECT', 'PASS', 'COMPATIBLE'}
 MAX_LOG_ENTRIES = 200
+EXIT_IP_PROVIDERS = {
+    'ipify': 'https://api.ipify.org/',
+    'ipapi': 'https://ipapi.co/json/',
+    'ipwho': 'https://ipwho.is/',
+}
 
 
 def _empty_monitor() -> dict[str, Any]:
@@ -37,6 +45,54 @@ def _empty_monitor() -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def _page_body() -> bytes:
     return PAGE.read_bytes()
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
+
+
+def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
+    """Return public IP and geolocation from one direct provider request."""
+    url = EXIT_IP_PROVIDERS.get(provider)
+    if not url:
+        raise RuntimeError('不支持的 IP 查询服务')
+    opener = build_opener(ProxyHandler({}))
+    request = Request(url, headers={'Accept': 'application/json'})
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            body = response.read(4096).decode('utf-8', errors='replace').strip()
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            payload = body
+        value = payload.get('ip') if isinstance(payload, dict) else payload
+        if not isinstance(value, str) or not value.strip():
+            raise RuntimeError('IP 查询服务返回了无效结果')
+        address = ipaddress.ip_address(value.strip())
+    except (OSError, TimeoutError, ValueError, RuntimeError) as error:
+        raise RuntimeError(str(error)) from error
+
+    timezone_data = payload.get('timezone') if isinstance(payload, dict) else None
+    if isinstance(timezone_data, dict):
+        timezone_name = timezone_data.get('id') or timezone_data.get('time_zone')
+        utc_offset = timezone_data.get('utc') or timezone_data.get('utc_offset')
+    else:
+        timezone_name = timezone_data
+        utc_offset = payload.get('utc_offset') if isinstance(payload, dict) else None
+    return {
+        'ip': str(address),
+        'version': address.version,
+        'country': (
+            payload.get('country_name') or payload.get('country')
+            if isinstance(payload, dict)
+            else None
+        ),
+        'city': payload.get('city') if isinstance(payload, dict) else None,
+        'timezone': timezone_name,
+        'utc_offset': utc_offset,
+        'checked_at': _utc_timestamp(),
+        'error': None,
+    }
 
 
 def classify_connection(connection: dict[str, Any]) -> str:
@@ -412,6 +468,23 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
             elif path == '/api/config':
                 self._json(200, public_config())
+            elif path == '/api/exit-ip':
+                config = load_config()
+                provider = parse_qs(urlsplit(self.path).query).get('provider', ['ipapi'])[0]
+                try:
+                    result = check_exit_ip(float(config['request_timeout']), provider)
+                except RuntimeError as error:
+                    result = {
+                        'ip': None,
+                        'version': None,
+                        'country': None,
+                        'city': None,
+                        'timezone': None,
+                        'utc_offset': None,
+                        'checked_at': _utc_timestamp(),
+                        'error': str(error),
+                    }
+                self._json(200, result)
             elif path == '/api/state':
                 self.service.ensure_monitor()
                 self._json(200, self.service.state())
