@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>FlClash 代理延迟记录器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202b33;
+      --muted: #65747d;
+      --line: #dce3e6;
+      --surface: #ffffff;
+      --canvas: #f3f6f5;
+      --green: #087e68;
+      --green-dark: #066552;
+      --green-pale: #e4f3ee;
+      --amber: #a35e0b;
+      --red: #b43d42;
+      --radius: 6px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .topbar {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 650; }
+    .brand-mark {
+      width: 27px; height: 27px; display: grid; place-items: center;
+      border-radius: 7px; color: #fff; background: var(--green); font-size: 13px;
+    }
+    main { width: 100%; margin: 0; padding: 22px 24px 28px; }
+    .layout { width: 100%; min-width: 0; display: grid; gap: 16px; }
+    .panel { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+    dialog {
+      width: min(560px, calc(100vw - 28px)); max-height: min(90vh, 760px); padding: 0;
+      border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink);
+      background: var(--surface); box-shadow: 0 18px 55px #142b2633;
+    }
+    dialog::backdrop { background: #14211f66; }
+    .dialog-head, .dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 17px; }
+    .dialog-head { border-bottom: 1px solid var(--line); }
+    .dialog-body { max-height: calc(90vh - 126px); overflow: auto; padding: 17px; }
+    .dialog-actions { justify-content: flex-end; border-top: 1px solid var(--line); }
+    h1 { margin: 0 0 3px; font-size: 19px; font-weight: 650; }
+    h2 { margin: 0; font-size: 14px; font-weight: 650; }
+    .subhead { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+    .field { display: block; margin: 0 0 13px; }
+    .field span { display: block; color: #46565e; font-size: 12px; margin-bottom: 5px; }
+    .field input {
+      display: block; width: 100%; min-width: 0; height: 35px; padding: 0 9px;
+      border: 1px solid #cbd5d9; border-radius: 4px; background: #fff; color: var(--ink);
+    }
+    input:focus { outline: 2px solid #a5d8ca; outline-offset: 1px; border-color: var(--green); }
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .checkline { display: flex; align-items: center; gap: 8px; margin: 1px 0 15px; color: #46565e; font-size: 13px; }
+    .checkline input, .select-box { accent-color: var(--green); }
+    .button-row { display: flex; gap: 8px; }
+    .button {
+      min-height: 35px; padding: 0 12px; border-radius: 4px; border: 1px solid #cbd5d9;
+      background: #fff; color: var(--ink); font-weight: 550;
+    }
+    .button:hover { background: #f2f6f5; }
+    .button.primary { border-color: var(--green); color: #fff; background: var(--green); }
+    .button.primary:hover { background: var(--green-dark); }
+    .button.danger { border-color: #e5b9bb; color: var(--red); }
+    .button:disabled { cursor: not-allowed; opacity: .55; }
+    .button.full { flex: 1; }
+    .help { margin: 13px 0 0; color: var(--muted); font-size: 11px; }
+    .workspace, .dashboard-columns, .primary-column, .connection-column { min-width: 0; }
+    .dashboard-columns { width: 100%; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); align-items: start; gap: 16px; }
+    .primary-column, .connection-column { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+    .metric { min-height: 83px; padding: 13px 16px; border-right: 1px solid var(--line); }
+    .metric:last-child { border-right: 0; }
+    .metric-label { color: var(--muted); font-size: 12px; }
+    .metric-value { display: block; margin-top: 5px; font-size: 21px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .section-head { min-width: 0; min-height: 49px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .section-head > * { min-width: 0; }
+    .proxy-results-head { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: start; gap: 8px; padding-block: 10px; }
+    .proxy-results-head .section-title { align-items: baseline; }
+    .proxy-results-head .section-actions { justify-content: flex-end; }
+    .section-title { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+    .endpoint { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    .section-actions { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .row-limit { height: 29px; padding: 0 6px; border: 1px solid #cbd5d9; border-radius: 4px; color: var(--muted); background: #fff; font-size: 12px; }
+    .text-button { padding: 5px 3px; border: 0; color: var(--green); background: transparent; font-size: 12px; }
+    .text-button:hover { text-decoration: underline; }
+    .sort-button {
+      display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; width: 100%;
+      padding: 0; border: 0; color: inherit; background: transparent; font: inherit; font-weight: inherit;
+    }
+    .sort-button:hover { color: var(--green); }
+    .sort-button:focus-visible { outline: 2px solid #a5d8ca; outline-offset: 2px; }
+    .sort-order { color: var(--green); font-size: 10px; font-weight: 700; }
+    .sort-indicator { width: 1em; color: var(--green); font-size: 12px; }
+    .active-sorts {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-height: 37px; padding: 7px 14px;
+      border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px;
+    }
+    .active-sorts.empty { display: none; }
+    .sort-chip {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 4px 3px 7px;
+      border: 1px solid #cbd5d9; border-radius: 4px; background: #f8faf9; color: var(--ink);
+    }
+    .sort-remove {
+      width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px;
+      color: var(--muted); background: transparent; line-height: 1;
+    }
+    .sort-remove:hover { color: var(--red); background: #f2e5e5; }
+    .sort-remove:focus-visible { outline: 2px solid #a5d8ca; outline-offset: 1px; }
+    .table-wrap { width: 100%; min-width: 0; max-height: min(52vh, 530px); overflow: auto; }
+    .connection-column .table-wrap { max-height: min(38vh, 370px); }
+    #connection-table-wrap { max-height: none; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    #connection-table-wrap table { table-layout: fixed; }
+    #connection-table-wrap th, #connection-table-wrap td { overflow-wrap: anywhere; }
+    #connection-table-wrap .number { white-space: normal; }
+    #connection-table-wrap th:nth-child(1) { width: 9%; }
+    #connection-table-wrap th:nth-child(2) { width: 12%; }
+    #connection-table-wrap th:nth-child(3) { width: 15%; }
+    #connection-table-wrap th:nth-child(4) { width: 27%; }
+    #connection-table-wrap th:nth-child(5) { width: 15%; }
+    #connection-table-wrap th:nth-child(6), #connection-table-wrap th:nth-child(7) { width: 11%; }
+    th { position: sticky; top: 0; z-index: 1; padding: 9px 12px; color: var(--muted); background: #f8faf9; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    td { padding: 9px 12px; border-top: 1px solid #edf0f1; font-variant-numeric: tabular-nums; }
+    tbody tr:hover { background: #f7faf9; }
+    .proxy-name { font-weight: 550; overflow-wrap: anywhere; }
+    .proxy-type { color: var(--muted); font-size: 12px; }
+    .number { text-align: right; white-space: nowrap; }
+    .empty { padding: 35px 15px; color: var(--muted); text-align: center; }
+    .logs { padding-bottom: 7px; }
+    .log-body { height: 140px; overflow: auto; padding: 7px 13px; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; color: #52616a; }
+    .log-line { overflow-wrap: anywhere; }
+    .telemetry-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .telemetry-metrics .metric:nth-child(2n) { border-right: 0; }
+    .telemetry-metrics .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
+    .telemetry-metrics .metric-value { font-size: 18px; overflow-wrap: anywhere; }
+    .telemetry-metrics .metric { border-bottom: 1px solid var(--line); }
+    .endpoint-errors { padding: 9px 14px; color: var(--red); font-size: 12px; }
+    .endpoint-errors:empty { display: none; }
+    .traffic-note { padding: 8px 14px 12px; color: var(--muted); font-size: 11px; }
+    .controller-log { display: grid; grid-template-columns: 142px 54px minmax(0, 1fr); gap: 8px; }
+    .controller-log time, .controller-log-level { color: var(--muted); }
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; z-index: 4; max-width: min(440px, calc(100vw - 40px));
+      padding: 11px 14px; border: 1px solid var(--line); border-radius: 5px;
+      background: #fff; box-shadow: 0 5px 20px #1b35301c; display: none;
+    }
+    .toast.show { display: block; }
+    .toast.error { border-color: #e5b9bb; color: var(--red); }
+    @media (max-width: 900px) {
+      main { padding: 16px; }
+      .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) { .dashboard-columns { grid-template-columns: minmax(0, 1fr); } }
+    @media (max-width: 1100px) {
+      #connection-table-wrap th:nth-child(2), #connection-table-wrap td:nth-child(2),
+      #connection-table-wrap th:nth-child(3), #connection-table-wrap td:nth-child(3),
+      #connection-table-wrap th:nth-child(5), #connection-table-wrap td:nth-child(5) { display: none; }
+      #connection-table-wrap th:nth-child(1) { width: 18%; }
+      #connection-table-wrap th:nth-child(4) { width: 42%; }
+      #connection-table-wrap th:nth-child(6), #connection-table-wrap th:nth-child(7) { width: 20%; }
+      .controller-log { grid-template-columns: 105px 42px minmax(0, 1fr); gap: 6px; }
+    }
+    @media (max-width: 560px) {
+      .topbar { padding: 0 14px; }
+      .brand { gap: 7px; font-size: 12px; }
+      main { padding: 12px; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .section-title { width: 100%; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
+      .section-head { align-items: flex-start; flex-direction: column; padding: 11px 12px; }
+      .section-actions { width: 100%; justify-content: flex-start; }
+      th, td { padding: 8px; }
+      .wide-only { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">F</span><span>FlClash 代理延迟记录器</span></div>
+  </header>
+  <main>
+    <div class="layout">
+      <div class="dashboard-columns" aria-label="采集结果">
+        <div class="primary-column">
+          <div class="panel summary" aria-label="采集概览">
+            <div class="metric"><span class="metric-label">代理数</span><strong class="metric-value" id="metric-proxies">0</strong></div>
+            <div class="metric"><span class="metric-label">已完成样本</span><strong class="metric-value" id="metric-samples">0</strong></div>
+            <div class="metric"><span class="metric-label">整体成功率</span><strong class="metric-value" id="metric-rate">—</strong></div>
+            <div class="metric"><span class="metric-label">当前状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
+          </div>
+
+          <section class="panel">
+            <div class="section-head proxy-results-head">
+              <div class="section-title"><h2>代理测试结果</h2><span class="endpoint">GET /proxies · GET /proxies/{name}/delay</span></div>
+              <div class="section-actions">
+                <span id="selection-count" class="proxy-type">未加载代理</span>
+                <button id="select-all" class="text-button" type="button">全选</button>
+                <button id="select-none" class="text-button" type="button">清空</button>
+                <button id="refresh" class="button" type="button">刷新代理</button>
+                <button id="run" class="button primary" type="button">开始采集</button>
+                <button id="stop" class="button danger" type="button" disabled>停止</button>
+                <button id="open-settings" class="button" type="button">设置</button>
+              </div>
+            </div>
+            <div id="active-sorts" class="active-sorts empty" aria-label="当前排序" aria-live="polite"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th><input id="select-toggle" class="select-box" type="checkbox" aria-label="选择全部代理"></th>
+                  <th>代理</th><th class="wide-only">类型</th><th class="number">进度</th>
+                  <th class="number"><button class="sort-button" type="button" data-sort-key="rate" data-sort-label="成功率" aria-label="按成功率排序，当前未排序" aria-sort="none">成功率 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+                  <th class="number"><button class="sort-button" type="button" data-sort-key="average" data-sort-label="平均延迟" aria-label="按平均延迟排序，当前未排序" aria-sort="none">平均延迟 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+                  <th class="number"><button class="sort-button" type="button" data-sort-key="jitter" data-sort-label="抖动" aria-label="按抖动排序，当前未排序" aria-sort="none">抖动 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+                </tr></thead>
+                <tbody id="proxy-rows"><tr><td colspan="7" class="empty">保存连接设置后刷新代理列表</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel logs">
+            <div class="section-head"><div class="section-title"><h2>采集记录</h2><span class="endpoint">本地</span></div><div class="section-actions"><label class="proxy-type" for="collection-log-limit">每屏</label><select id="collection-log-limit" class="row-limit" aria-label="采集记录每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select><button id="clear-log" class="text-button" type="button">清空显示</button></div></div>
+            <div id="log-body" class="log-body" aria-live="polite"><div class="log-line">等待连接本机服务…</div></div>
+          </section>
+        </div>
+
+        <div class="connection-column">
+          <section class="panel">
+            <div class="section-head"><div class="section-title"><h2>控制器实时状态</h2><span class="endpoint">GET /traffic · GET /connections</span></div><span id="monitor-status" class="proxy-type">等待控制器数据</span></div>
+            <div class="telemetry-metrics">
+              <div class="metric"><span class="metric-label">上传速率</span><strong class="metric-value" id="traffic-up">—</strong></div>
+              <div class="metric"><span class="metric-label">下载速率</span><strong class="metric-value" id="traffic-down">—</strong></div>
+              <div class="metric"><span class="metric-label">累计上传</span><strong class="metric-value" id="traffic-up-total">—</strong></div>
+              <div class="metric"><span class="metric-label">累计下载</span><strong class="metric-value" id="traffic-down-total">—</strong></div>
+            </div>
+            <div class="endpoint-errors" id="endpoint-errors" role="status"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head"><div class="section-title"><h2>代理与直连流量</h2><span class="endpoint">按活动连接代理链统计 · 累计从本次监控开始</span></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>类型</th><th class="number">上传速度</th><th class="number">下载速度</th><th class="number">累计上传</th><th class="number">累计下载</th></tr></thead>
+                <tbody>
+                  <tr><td>代理</td><td id="proxy-up-rate" class="number">—</td><td id="proxy-down-rate" class="number">—</td><td id="proxy-up-total" class="number">—</td><td id="proxy-down-total" class="number">—</td></tr>
+                  <tr><td>直连</td><td id="direct-up-rate" class="number">—</td><td id="direct-down-rate" class="number">—</td><td id="direct-up-total" class="number">—</td><td id="direct-down-total" class="number">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="traffic-note">按活动连接计数差分换算速度；轮询间已结束的连接、监控开始前流量及无法识别的链路不计入分类累计。</div>
+          </section>
+          <section class="panel">
+            <div class="section-head"><div class="section-title"><h2>活动连接</h2><span class="endpoint">GET /connections</span></div><div class="section-actions"><span id="connection-count" class="proxy-type">0 条连接</span><label class="proxy-type" for="connection-limit">每屏</label><select id="connection-limit" class="row-limit" aria-label="活动连接每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
+            <div id="connection-table-wrap" class="table-wrap">
+              <table>
+                <thead><tr><th>网络</th><th>进程</th><th>来源</th><th>目标</th><th>代理链</th><th class="number">上传</th><th class="number">下载</th></tr></thead>
+                <tbody id="connection-rows"><tr><td colspan="7" class="empty">等待控制器数据</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel logs">
+            <div class="section-head"><div class="section-title"><h2>控制器日志</h2><span class="endpoint">GET /logs?level=info&amp;format=structured</span></div><div class="section-actions"><span id="controller-log-count" class="proxy-type">0 条</span><label class="proxy-type" for="controller-log-limit">每屏</label><select id="controller-log-limit" class="row-limit" aria-label="控制器日志每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
+            <div id="controller-log-body" class="log-body" aria-live="polite"><div class="log-line">等待控制器数据…</div></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-head">
+      <div><h1 id="settings-title">采集设置</h1><p class="subhead">连接本机外部控制器</p></div>
+      <button id="close-settings" class="button" type="button" aria-label="关闭设置">关闭</button>
+    </div>
+    <div class="dialog-body">
+        <label class="field"><span>控制器地址</span><input id="controller" autocomplete="url" value="http://127.0.0.1:9090"></label>
+        <label class="field"><span>控制器密钥</span><input id="secret" type="password" autocomplete="new-password" placeholder="未设置"></label>
+        <label class="field"><span>测试 URL</span><input id="test-url" value="https://www.gstatic.com/generate_204"></label>
+        <div class="field-grid">
+          <label class="field"><span>采集轮数</span><input id="rounds" type="number" min="1" step="1" value="5"></label>
+          <label class="field"><span>轮次间隔（秒）</span><input id="interval" type="number" min="0" step="1" value="5"></label>
+          <label class="field"><span>同时测试数</span><input id="concurrency" type="number" min="1" step="1" value="20"></label>
+          <label class="field"><span>单次超时（毫秒）</span><input id="timeout-ms" type="number" min="1" step="100" value="5000"></label>
+          <label class="field"><span>HTTP 请求超时（秒）</span><input id="request-timeout" type="number" min="1" step="1" value="10"></label>
+        </div>
+        <p class="help" id="secret-note">每轮最多同时测试指定数量的代理；密钥保存在本机配置文件，服务仅监听本机回环地址。</p>
+    </div>
+    <div class="dialog-actions">
+      <button id="save" class="button primary" type="button">保存配置</button>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let proxies = [];
+    let proxyStats = [];
+    let proxySorts = [];
+    let toastTimer;
+
+    function notify(message, error = false) {
+      const toast = $('toast');
+      toast.textContent = message;
+      toast.className = `toast show${error ? ' error' : ''}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.className = 'toast', 3600);
+    }
+
+    function values() {
+      return {
+        controller: $('controller').value.trim(),
+        secret: $('secret').value,
+        test_url: $('test-url').value.trim(),
+        rounds: Number($('rounds').value),
+        interval: Number($('interval').value),
+        concurrency: Number($('concurrency').value),
+        timeout_ms: Number($('timeout-ms').value),
+        request_timeout: Number($('request-timeout').value),
+      };
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        cache: 'no-store',
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `请求失败 (${response.status})`);
+      return data;
+    }
+
+    function formData() {
+      return values();
+    }
+
+    async function saveConfig(showMessage = true) {
+      const data = await api('/api/config', { method: 'POST', body: JSON.stringify(formData()) });
+      $('secret').value = '';
+      $('secret').placeholder = data.config.secret_configured ? '密钥已保存，留空保持不变' : '未设置';
+      if (showMessage) notify('配置已保存');
+      return data.config;
+    }
+
+    async function loadConfig() {
+      const config = await api('/api/config');
+      $('controller').value = config.controller;
+      $('test-url').value = config.test_url;
+      $('rounds').value = config.rounds;
+      $('interval').value = config.interval;
+      $('concurrency').value = config.concurrency;
+      $('timeout-ms').value = config.timeout_ms;
+      $('request-timeout').value = config.request_timeout;
+      $('secret').placeholder = config.secret_configured ? '密钥已保存，留空保持不变' : '未设置';
+    }
+
+    function selectedNames() {
+      return [...document.querySelectorAll('.proxy-check:checked')].map((input) => input.value);
+    }
+
+    function updateSortHeaders() {
+      const directionLabels = { asc: '正序', desc: '倒序' };
+      const indicators = { asc: '↑', desc: '↓', none: '↕' };
+      document.querySelectorAll('.sort-button').forEach((button) => {
+        const order = proxySorts.findIndex((sort) => sort.key === button.dataset.sortKey);
+        const current = order >= 0 ? proxySorts[order].direction : 'none';
+        button.setAttribute('aria-sort', current === 'asc' ? 'ascending' : current === 'desc' ? 'descending' : 'none');
+        button.setAttribute('aria-label', `按${button.dataset.sortLabel}排序，当前${directionLabels[current] || '未排序'}`);
+        button.querySelector('.sort-order').textContent = order >= 0 ? order + 1 : '';
+        button.querySelector('.sort-indicator').textContent = indicators[current];
+      });
+    }
+
+    function renderActiveSorts() {
+      const container = $('active-sorts');
+      container.replaceChildren();
+      container.classList.toggle('empty', proxySorts.length === 0);
+      if (!proxySorts.length) return;
+      const directionLabels = { asc: '正序', desc: '倒序' };
+      const caption = document.createElement('span');
+      caption.textContent = '当前排序：';
+      container.append(caption);
+      proxySorts.forEach((sort, index) => {
+        const chip = document.createElement('span');
+        chip.className = 'sort-chip';
+        chip.append(document.createTextNode(`${index + 1}. ${sort.label} · ${directionLabels[sort.direction]}`));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'sort-remove';
+        remove.textContent = 'x';
+        remove.setAttribute('aria-label', `移除第${index + 1}级${sort.label}排序`);
+        remove.addEventListener('click', () => removeSort(sort.key));
+        chip.append(remove);
+        container.append(chip);
+      });
+    }
+
+    function cycleSort(metric) {
+      const index = proxySorts.findIndex((sort) => sort.key === metric);
+      if (index < 0) {
+        proxySorts.push({ key: metric, label: document.querySelector(`[data-sort-key="${metric}"]`).dataset.sortLabel, direction: 'asc' });
+      } else {
+        proxySorts[index].direction = proxySorts[index].direction === 'asc' ? 'desc' : 'asc';
+      }
+      renderProxies(proxyStats);
+    }
+
+    function removeSort(metric) {
+      proxySorts = proxySorts.filter((sort) => sort.key !== metric);
+      renderProxies(proxyStats);
+    }
+
+    function renderProxies(rows = []) {
+      const body = $('proxy-rows');
+      proxyStats = rows;
+      const existingChecks = [...document.querySelectorAll('.proxy-check')];
+      const hasExistingSelection = existingChecks.length > 0;
+      const selected = new Set(existingChecks.filter((input) => input.checked).map((input) => input.value));
+      updateSortHeaders();
+      renderActiveSorts();
+      body.replaceChildren();
+      if (!proxies.length) {
+        body.innerHTML = '<tr><td colspan="7" class="empty">没有可测试的代理，请检查控制器连接或策略组设置</td></tr>';
+        $('selection-count').textContent = '未找到代理';
+        return;
+      }
+      const stats = new Map(rows.map((row) => [row.proxy, row]));
+      const orderedProxies = proxies.map((proxy, index) => ({ proxy, index }));
+      if (proxySorts.length) {
+        orderedProxies.sort((left, right) => {
+          for (const { key, direction } of proxySorts) {
+            const leftValue = stats.get(left.proxy.name)?.[key];
+            const rightValue = stats.get(right.proxy.name)?.[key];
+            const leftNumber = Number(leftValue);
+            const rightNumber = Number(rightValue);
+            const leftMissing = leftValue === null || leftValue === undefined || !Number.isFinite(leftNumber);
+            const rightMissing = rightValue === null || rightValue === undefined || !Number.isFinite(rightNumber);
+            if (leftMissing || rightMissing) {
+              if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+              continue;
+            }
+            const difference = leftNumber - rightNumber;
+            if (difference) return direction === 'asc' ? difference : -difference;
+          }
+          return left.index - right.index;
+        });
+      }
+      orderedProxies.forEach(({ proxy }) => {
+        const stat = stats.get(proxy.name);
+        const tr = document.createElement('tr');
+        const checkCell = document.createElement('td');
+        const check = document.createElement('input');
+        check.type = 'checkbox'; check.className = 'proxy-check select-box'; check.value = proxy.name;
+        check.checked = hasExistingSelection ? selected.has(proxy.name) : true;
+        check.addEventListener('change', updateSelection);
+        checkCell.append(check);
+        const nameCell = document.createElement('td');
+        const name = document.createElement('div'); name.className = 'proxy-name'; name.textContent = proxy.name; nameCell.append(name);
+        const typeCell = document.createElement('td'); typeCell.className = 'proxy-type wide-only'; typeCell.textContent = proxy.type;
+        const cells = [
+          stat ? `${stat.total}/${$('rounds').value || 0}` : '—',
+          stat ? `${(stat.rate * 100).toFixed(0)}%` : '—',
+          stat && stat.average !== null ? `${stat.average.toFixed(1)} ms` : '—',
+          stat && stat.jitter !== null ? `${stat.jitter.toFixed(1)} ms` : '—',
+        ];
+        tr.append(checkCell, nameCell, typeCell);
+        cells.forEach((value) => { const td = document.createElement('td'); td.className = 'number'; td.textContent = value; tr.append(td); });
+        body.append(tr);
+      });
+      updateSelection();
+    }
+
+    function updateSelection() {
+      const checks = [...document.querySelectorAll('.proxy-check')];
+      const chosen = checks.filter((input) => input.checked).length;
+      $('selection-count').textContent = `${chosen} / ${checks.length} 已选择`;
+      $('select-toggle').checked = checks.length > 0 && chosen === checks.length;
+      $('select-toggle').indeterminate = chosen > 0 && chosen < checks.length;
+    }
+
+    function formatBytes(value) {
+      let size = Number(value);
+      if (!Number.isFinite(size)) return '—';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let unit = 0;
+      while (Math.abs(size) >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
+      return `${size.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+    }
+
+    function configureVisibleRows() {
+      const settings = [
+        { id: 'collection-log-limit', key: 'collectionLogRows', target: 'log-body', rowHeight: 20.4, padding: 14 },
+        { id: 'controller-log-limit', key: 'controllerLogRows', target: 'controller-log-body', rowHeight: 20.4, padding: 14 },
+      ];
+      settings.forEach(({ id, key, target, rowHeight, padding }) => {
+        const select = $(id);
+        const saved = localStorage.getItem(key);
+        if (saved && [...select.options].some((option) => option.value === saved)) select.value = saved;
+        const apply = () => {
+          localStorage.setItem(key, select.value);
+          $(target).style.height = `${Math.ceil(Number(select.value) * rowHeight + padding)}px`;
+        };
+        select.addEventListener('change', apply);
+        apply();
+      });
+
+      const connectionSelect = $('connection-limit');
+      const saved = localStorage.getItem('connectionRows');
+      if (saved && [...connectionSelect.options].some((option) => option.value === saved)) connectionSelect.value = saved;
+      connectionSelect.addEventListener('change', () => {
+        localStorage.setItem('connectionRows', connectionSelect.value);
+        resizeConnectionTable();
+      });
+      resizeConnectionTable();
+    }
+
+    function connectionAddress(metadata, prefix) {
+      const ip = metadata[`${prefix}IP`] || '';
+      const port = metadata[`${prefix}Port`];
+      const host = prefix === 'destination' ? metadata.host : '';
+      const address = host || ip || '—';
+      return port ? `${address}:${port}` : address;
+    }
+
+    function resizeConnectionTable() {
+      const wrap = $('connection-table-wrap');
+      const header = wrap.querySelector('thead').getBoundingClientRect().height;
+      const row = wrap.querySelector('tbody tr')?.getBoundingClientRect().height || 37;
+      wrap.style.height = `${Math.ceil(header + Number($('connection-limit').value) * row)}px`;
+    }
+
+    function renderConnections(state) {
+      const connections = Array.isArray(state.connections) ? state.connections : [];
+      const body = $('connection-rows');
+      $('connection-count').textContent = `${connections.length} 条连接`;
+      body.replaceChildren();
+      if (!connections.length) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td'); cell.colSpan = 7; cell.className = 'empty';
+        cell.textContent = '当前没有活动连接'; row.append(cell); body.append(row); resizeConnectionTable(); return;
+      }
+      connections.forEach((connection) => {
+        const metadata = connection.metadata || {};
+        const row = document.createElement('tr');
+        const values = [
+          metadata.network || metadata.type || '—',
+          metadata.process || '—',
+          connectionAddress(metadata, 'source'),
+          connectionAddress(metadata, 'destination'),
+          Array.isArray(connection.chains) ? connection.chains.join(' → ') : '—',
+          formatBytes(connection.upload), formatBytes(connection.download),
+        ];
+        values.forEach((value, index) => {
+          const cell = document.createElement('td');
+          if (index > 4) cell.className = 'number';
+          cell.textContent = String(value); row.append(cell);
+        });
+        body.append(row);
+      });
+      resizeConnectionTable();
+    }
+
+    function renderControllerLogs(entries) {
+      const body = $('controller-log-body');
+      const logs = Array.isArray(entries) ? entries : [];
+      $('controller-log-count').textContent = `${logs.length} 条`;
+      body.replaceChildren();
+      if (!logs.length) {
+        const empty = document.createElement('div'); empty.className = 'log-line'; empty.textContent = '等待控制器日志…'; body.append(empty); return;
+      }
+      logs.forEach((entry) => {
+        const line = document.createElement('div'); line.className = 'log-line controller-log';
+        const time = document.createElement('time'); time.textContent = entry.time || '';
+        const level = document.createElement('span'); level.className = 'controller-log-level'; level.textContent = entry.level || '';
+        const message = document.createElement('span');
+        const fields = entry.fields && typeof entry.fields === 'object' ? ` ${JSON.stringify(entry.fields)}` : '';
+        message.textContent = `${entry.message || ''}${fields}`;
+        line.append(time, level, message); body.append(line);
+      });
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function paintMonitor(state) {
+      const traffic = state.traffic || {};
+      const totals = state.connection_totals || {};
+      $('traffic-up').textContent = `${formatBytes(traffic.up)}/s`;
+      $('traffic-down').textContent = `${formatBytes(traffic.down)}/s`;
+      $('traffic-up-total').textContent = formatBytes(traffic.upTotal ?? totals.uploadTotal);
+      $('traffic-down-total').textContent = formatBytes(traffic.downTotal ?? totals.downloadTotal);
+      const split = state.connection_traffic || {};
+      for (const kind of ['proxy', 'direct']) {
+        const values = split[kind] || {};
+        $(`${kind}-up-rate`).textContent = `${formatBytes(values.up)}/s`;
+        $(`${kind}-down-rate`).textContent = `${formatBytes(values.down)}/s`;
+        $(`${kind}-up-total`).textContent = formatBytes(values.upTotal);
+        $(`${kind}-down-total`).textContent = formatBytes(values.downTotal);
+      }
+      renderConnections(state);
+      renderControllerLogs(state.controller_logs);
+      const errors = state.errors || {};
+      const labels = { traffic: '/traffic', logs: '/logs', connections: '/connections' };
+      $('endpoint-errors').textContent = Object.entries(errors).map(([key, error]) => `${labels[key] || key}: ${error}`).join('；');
+      $('monitor-status').textContent = Object.keys(errors).length ? '部分接口不可用' : '控制器已连接';
+    }
+
+    async function refreshProxies() {
+      await saveConfig(false);
+      $('refresh').disabled = true;
+      try {
+        const data = await api('/api/proxies');
+        proxies = data.proxies;
+        renderProxies();
+        notify(`已加载 ${proxies.length} 个代理`);
+      } finally {
+        $('refresh').disabled = false;
+      }
+    }
+
+    async function startRun() {
+      const selected = selectedNames();
+      if (!selected.length) { notify('请至少选择一个代理', true); return; }
+      $('run').disabled = true;
+      try {
+        await api('/api/run', { method: 'POST', body: JSON.stringify({ ...formData(), proxies: selected }) });
+        $('secret').value = '';
+        $('secret').placeholder = '密钥已保存，留空保持不变';
+        notify('采集已开始');
+        await refreshState();
+      } catch (error) {
+        notify(error.message, true);
+        $('run').disabled = false;
+      }
+    }
+
+    async function stopRun() {
+      try { await api('/api/stop', { method: 'POST', body: '{}' }); }
+      catch (error) { notify(error.message, true); }
+    }
+
+    function paintState(state) {
+      paintMonitor(state);
+      $('metric-status').textContent = state.running ? (state.stopping ? '停止中' : '采集中') : state.status;
+      $('run').disabled = state.running;
+      $('stop').disabled = !state.running || state.stopping;
+      $('metric-proxies').textContent = Object.keys(state.proxy_types || {}).length;
+      const samples = state.rows.reduce((total, row) => total + row.total, 0);
+      const successes = state.rows.reduce((total, row) => total + row.success, 0);
+      $('metric-samples').textContent = samples;
+      $('metric-rate').textContent = samples ? `${(successes / samples * 100).toFixed(0)}%` : '—';
+      if (state.proxy_types && Object.keys(state.proxy_types).length) {
+        proxies = Object.entries(state.proxy_types).map(([name, type]) => ({ name, type }));
+        renderProxies(state.rows);
+      }
+      const log = $('log-body');
+      if (state.logs.length) {
+        log.replaceChildren(...state.logs.map((line) => { const div = document.createElement('div'); div.className = 'log-line'; div.textContent = line; return div; }));
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+
+    async function refreshState() {
+      try { paintState(await api('/api/state')); }
+      catch (error) { $('metric-status').textContent = '本机服务连接失败'; }
+    }
+
+    $('open-settings').addEventListener('click', () => $('settings-dialog').showModal());
+    $('close-settings').addEventListener('click', () => $('settings-dialog').close());
+    $('save').addEventListener('click', async () => {
+      try {
+        await saveConfig();
+        $('settings-dialog').close();
+      } catch (error) {
+        notify(error.message, true);
+      }
+    });
+    $('refresh').addEventListener('click', () => refreshProxies().catch((error) => notify(error.message, true)));
+    $('run').addEventListener('click', startRun);
+    $('stop').addEventListener('click', stopRun);
+    $('select-all').addEventListener('click', () => { document.querySelectorAll('.proxy-check').forEach((input) => input.checked = true); updateSelection(); });
+    $('select-none').addEventListener('click', () => { document.querySelectorAll('.proxy-check').forEach((input) => input.checked = false); updateSelection(); });
+    $('select-toggle').addEventListener('change', (event) => { document.querySelectorAll('.proxy-check').forEach((input) => input.checked = event.target.checked); updateSelection(); });
+    document.querySelectorAll('.sort-button').forEach((button) => {
+      button.addEventListener('click', () => cycleSort(button.dataset.sortKey));
+    });
+    $('clear-log').addEventListener('click', () => $('log-body').replaceChildren());
+
+    (async () => {
+      configureVisibleRows();
+      try {
+        await loadConfig();
+        await refreshState();
+        await refreshProxies();
+      } catch (error) {
+        notify(error.message, true);
+      }
+      setInterval(refreshState, 1000);
+    })();
+  </script>
+</body>
+</html>

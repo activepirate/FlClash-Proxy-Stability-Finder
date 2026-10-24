@@ -1,0 +1,5 @@
+config/config.json
+.idea/
+__pycache__/
+*.py[cod]
+data/*.csv
