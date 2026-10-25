@@ -146,6 +146,8 @@
     .proxy-results-head { justify-content: flex-start; padding-block: 10px; }
     .proxy-results-head .section-title { align-items: baseline; }
     .proxy-results-actions { justify-content: flex-end; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .proxy-search { flex: 1 1 220px; max-width: 360px; }
+    .proxy-search input { width: 100%; height: 35px; padding: 0 9px; border: 1px solid #cbd5d9; border-radius: 4px; background: #fff; color: var(--ink); }
     .section-title { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
     .endpoint { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
     .section-actions { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -352,6 +354,7 @@
               <div class="metric"><span class="metric-label">当前状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
             </div>
             <div class="section-actions proxy-results-actions">
+              <label class="proxy-search"><input id="proxy-search" type="search" aria-label="按代理名称搜索" placeholder="搜索代理名称"></label>
               <button id="refresh" class="button" type="button">刷新代理</button>
               <button id="run" class="button primary" type="button">开始采集</button>
               <button id="stop" class="button danger" type="button" disabled>停止</button>
@@ -653,7 +656,15 @@
           return left.index - right.index;
         });
       }
-      orderedProxies.forEach(({ proxy }) => {
+      const query = $('proxy-search').value.trim().toLocaleLowerCase();
+      const visibleProxies = query
+        ? orderedProxies.filter(({ proxy }) => proxy.name.toLocaleLowerCase().includes(query))
+        : orderedProxies;
+      if (!visibleProxies.length) {
+        body.innerHTML = '<tr><td colspan="6" class="empty">没有找到匹配的代理</td></tr>';
+        return;
+      }
+      visibleProxies.forEach(({ proxy }) => {
         const stat = stats.get(proxy.name);
         const tr = document.createElement('tr');
         const nameCell = document.createElement('td');
@@ -754,24 +765,33 @@
       resizeConnectionTable();
     }
 
+    function replaceLogContents(body, children) {
+      const scrollTop = body.scrollTop;
+      const wasAtBottom = body.scrollHeight - body.clientHeight - scrollTop <= 2;
+      body.replaceChildren(...children);
+      body.scrollTop = wasAtBottom ? body.scrollHeight : scrollTop;
+    }
+
     function renderControllerLogs(entries) {
       const body = $('controller-log-body');
       const logs = Array.isArray(entries) ? entries : [];
       $('controller-log-count').textContent = `${logs.length} 条`;
-      body.replaceChildren();
       if (!logs.length) {
-        const empty = document.createElement('div'); empty.className = 'log-line'; empty.textContent = '等待控制器日志…'; body.append(empty); return;
+        const empty = document.createElement('div'); empty.className = 'log-line'; empty.textContent = '等待控制器日志…';
+        replaceLogContents(body, [empty]);
+        return;
       }
-      logs.forEach((entry) => {
+      const lines = logs.map((entry) => {
         const line = document.createElement('div'); line.className = 'log-line controller-log';
         const time = document.createElement('time'); time.textContent = formatChinaTime(entry.time);
         const level = document.createElement('span'); level.className = 'controller-log-level'; level.textContent = entry.level || '';
         const message = document.createElement('span');
         const fields = entry.fields && typeof entry.fields === 'object' ? ` ${JSON.stringify(entry.fields)}` : '';
         message.textContent = `${entry.message || ''}${fields}`;
-        line.append(time, level, message); body.append(line);
+        line.append(time, level, message);
+        return line;
       });
-      body.scrollTop = body.scrollHeight;
+      replaceLogContents(body, lines);
     }
 
     function paintMonitor(state) {
@@ -993,10 +1013,12 @@
         proxies = Object.entries(state.proxy_types).map(([name, type]) => ({ name, type }));
         renderProxies(state.rows);
       }
-      const log = $('log-body');
       if (state.logs.length) {
-        log.replaceChildren(...state.logs.map((line) => { const div = document.createElement('div'); div.className = 'log-line'; div.textContent = line; return div; }));
-        log.scrollTop = log.scrollHeight;
+        const logLines = state.logs.map((line) => {
+          const div = document.createElement('div'); div.className = 'log-line'; div.textContent = line;
+          return div;
+        });
+        replaceLogContents($('log-body'), logLines);
       }
     }
 
@@ -1036,6 +1058,7 @@
     });
     $('run').addEventListener('click', startRun);
     $('stop').addEventListener('click', stopRun);
+    $('proxy-search').addEventListener('input', () => renderProxies(proxyStats));
     document.querySelectorAll('.sort-button').forEach((button) => {
       button.addEventListener('click', () => cycleSort(button.dataset.sortKey));
     });
