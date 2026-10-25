@@ -93,9 +93,9 @@
     .exit-ip-panel { min-height: 82px; padding: 0 16px 12px; }
     .module-head { min-height: 42px; display: flex; align-items: center; border-bottom: 1px solid var(--line); }
     .exit-ip-panel .module-head { margin-bottom: 8px; }
-    .exit-ip-table-wrap { min-width: 0; overflow-x: auto; }
-    .exit-ip-table { min-width: 1020px; }
-    .exit-ip-row { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(105px, 1fr)) minmax(160px, 1.2fr) 100px; align-items: center; gap: 12px; min-height: 48px; }
+    .exit-ip-table-wrap { min-width: 0; }
+    .exit-ip-table { width: 100%; min-width: 0; }
+    .exit-ip-row { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)) minmax(0, 1.2fr) minmax(72px, .85fr); align-items: center; gap: 8px; min-height: 48px; }
     .exit-ip-row + .exit-ip-row { border-top: 1px solid var(--line); }
     .exit-ip-cell { min-width: 0; overflow-wrap: anywhere; }
     .exit-ip-header { min-height: 30px; color: var(--muted); font-size: 12px; }
@@ -182,12 +182,13 @@
     #connection-table-wrap table { table-layout: fixed; }
     #connection-table-wrap th, #connection-table-wrap td { overflow-wrap: anywhere; }
     #connection-table-wrap .number { white-space: normal; }
-    #connection-table-wrap th:nth-child(1) { width: 9%; }
-    #connection-table-wrap th:nth-child(2) { width: 12%; }
-    #connection-table-wrap th:nth-child(3) { width: 15%; }
-    #connection-table-wrap th:nth-child(4) { width: 27%; }
-    #connection-table-wrap th:nth-child(5) { width: 15%; }
-    #connection-table-wrap th:nth-child(6), #connection-table-wrap th:nth-child(7) { width: 11%; }
+    #connection-table-wrap th:nth-child(1) { width: 8%; }
+    #connection-table-wrap th:nth-child(2) { width: 11%; }
+    #connection-table-wrap th:nth-child(3) { width: 18%; }
+    #connection-table-wrap th:nth-child(4) { width: 14%; }
+    #connection-table-wrap th:nth-child(5) { width: 22%; }
+    #connection-table-wrap th:nth-child(6) { width: 14%; }
+    #connection-table-wrap th:nth-child(7), #connection-table-wrap th:nth-child(8) { width: 6.5%; }
     th { position: sticky; top: 0; z-index: 1; padding: 9px 12px; color: var(--muted); background: #f8faf9; font-size: 11px; font-weight: 600; white-space: nowrap; }
     td { padding: 9px 12px; border-top: 1px solid #edf0f1; font-variant-numeric: tabular-nums; }
     tbody tr:hover { background: #f7faf9; }
@@ -223,10 +224,11 @@
     @media (max-width: 1100px) {
       #connection-table-wrap th:nth-child(2), #connection-table-wrap td:nth-child(2),
       #connection-table-wrap th:nth-child(3), #connection-table-wrap td:nth-child(3),
-      #connection-table-wrap th:nth-child(5), #connection-table-wrap td:nth-child(5) { display: none; }
+      #connection-table-wrap th:nth-child(4), #connection-table-wrap td:nth-child(4),
+      #connection-table-wrap th:nth-child(6), #connection-table-wrap td:nth-child(6) { display: none; }
       #connection-table-wrap th:nth-child(1) { width: 18%; }
-      #connection-table-wrap th:nth-child(4) { width: 42%; }
-      #connection-table-wrap th:nth-child(6), #connection-table-wrap th:nth-child(7) { width: 20%; }
+      #connection-table-wrap th:nth-child(5) { width: 42%; }
+      #connection-table-wrap th:nth-child(7), #connection-table-wrap th:nth-child(8) { width: 20%; }
       .controller-log { grid-template-columns: 105px 42px minmax(0, 1fr); gap: 6px; }
     }
     @media (max-width: 560px) {
@@ -241,6 +243,13 @@
       .section-actions { width: 100%; justify-content: flex-start; }
       th, td { padding: 8px; }
       .wide-only { display: none; }
+      .exit-ip-row {
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, .8fr) minmax(0, .9fr) minmax(0, .75fr) minmax(0, 1.1fr) minmax(56px, .85fr);
+        gap: 4px;
+      }
+      .exit-ip-header { font-size: 10px; }
+      .exit-ip-value { font-size: 12px; }
+      .exit-ip-provider { padding-inline: 3px; font-size: 11px; }
       .service-status-list-header {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 4px 10px;
@@ -306,6 +315,15 @@
                   <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwho-utc_offset">—</strong>
                   <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwho-meta">—</strong>
                   <button class="button exit-ip-provider" data-provider="ipwho" type="button">ipwho.is</button>
+                </div>
+                <div class="exit-ip-row" data-provider-row="ipwhois" role="row">
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-ip">—</strong>
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-country">—</strong>
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-city">—</strong>
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-timezone">—</strong>
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-utc_offset">—</strong>
+                  <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipwhois-meta">—</strong>
+                  <button class="button exit-ip-provider" data-provider="ipwhois" type="button">ipwhois.app</button>
                 </div>
               </div>
             </div>
@@ -388,8 +406,8 @@
             <div class="section-head"><div class="section-title"><h2>活动连接</h2><span class="endpoint">GET /connections</span></div><div class="section-actions"><span id="connection-count" class="proxy-type">0 条连接</span><label class="proxy-type" for="connection-limit">每屏</label><select id="connection-limit" class="row-limit" aria-label="活动连接每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
             <div id="connection-table-wrap" class="table-wrap">
               <table>
-                <thead><tr><th>网络</th><th>进程</th><th>来源</th><th>目标</th><th>代理链</th><th class="number">上传</th><th class="number">下载</th></tr></thead>
-                <tbody id="connection-rows"><tr><td colspan="7" class="empty">等待控制器数据</td></tr></tbody>
+                <thead><tr><th>网络</th><th>进程</th><th>开始时间</th><th>来源</th><th>目标</th><th>代理链</th><th class="number">上传</th><th class="number">下载</th></tr></thead>
+                <tbody id="connection-rows"><tr><td colspan="8" class="empty">等待控制器数据</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -711,7 +729,7 @@
       body.replaceChildren();
       if (!connections.length) {
         const row = document.createElement('tr');
-        const cell = document.createElement('td'); cell.colSpan = 7; cell.className = 'empty';
+        const cell = document.createElement('td'); cell.colSpan = 8; cell.className = 'empty';
         cell.textContent = '当前没有活动连接'; row.append(cell); body.append(row); resizeConnectionTable(); return;
       }
       connections.forEach((connection) => {
@@ -720,6 +738,7 @@
         const values = [
           metadata.network || metadata.type || '—',
           metadata.process || '—',
+          formatChinaTime(connection.start) || '—',
           connectionAddress(metadata, 'source'),
           connectionAddress(metadata, 'destination'),
           Array.isArray(connection.chains) ? connection.chains.join(' → ') : '—',
@@ -727,7 +746,7 @@
         ];
         values.forEach((value, index) => {
           const cell = document.createElement('td');
-          if (index > 4) cell.className = 'number';
+          if (index > 5) cell.className = 'number';
           cell.textContent = String(value); row.append(cell);
         });
         body.append(row);
@@ -791,7 +810,7 @@
       }
     }
 
-    const exitIpProviderLabels = { ipify: 'ipify', ipapi: 'ipapi.co', ipwho: 'ipwho.is' };
+    const exitIpProviderLabels = { ipify: 'ipify', ipapi: 'ipapi.co', ipwho: 'ipwho.is', ipwhois: 'ipwhois.app' };
     const exitIpFields = ['ip', 'country', 'city', 'timezone', 'utc_offset', 'meta'];
 
     function setExitIpRow(provider, values) {

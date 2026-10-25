@@ -31,6 +31,13 @@ EXIT_IP_PROVIDERS = {
     'ipify': 'https://api.ipify.org/',
     'ipapi': 'https://ipapi.co/json/',
     'ipwho': 'https://ipwho.is/',
+    'ipwhois': 'https://ipwhois.app/json/',
+}
+EXIT_IP_LABELS = {
+    'ipify': 'ipify',
+    'ipapi': 'ipapi.co',
+    'ipwho': 'ipwho.is',
+    'ipwhois': 'ipwhois.app',
 }
 SERVICE_TARGETS = {
     'google': ('Google', 'https://www.google.com/generate_204'),
@@ -60,34 +67,53 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec='seconds').replace('+00:00', 'Z')
 
 
-def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
-    """Return public IP and geolocation from one direct provider request."""
-    url = EXIT_IP_PROVIDERS.get(provider)
-    if not url:
-        raise RuntimeError('不支持的 IP 查询服务')
-    opener = build_opener(ProxyHandler({}))
-    request = Request(url, headers={'Accept': 'application/json'})
+def _read_exit_ip_payload(opener: Any, url: str, timeout: float) -> Any:
+    request = Request(
+        url,
+        headers={
+            'Accept': 'application/json',
+            'User-Agent': 'FlClashRecorder/1.0',
+        },
+    )
     try:
         with opener.open(request, timeout=timeout) as response:
             body = response.read(4096).decode('utf-8', errors='replace').strip()
-        try:
-            payload = json.loads(body)
-        except json.JSONDecodeError:
-            payload = body
-        value = payload.get('ip') if isinstance(payload, dict) else payload
-        if not isinstance(value, str) or not value.strip():
-            raise RuntimeError('IP 查询服务返回了无效结果')
+    except HTTPError as error:
+        if error.code == 429:
+            raise RuntimeError('请求过于频繁（HTTP 429），请稍后再试') from error
+        raise RuntimeError(f'HTTP {error.code}: {error.reason}') from error
+    except (OSError, TimeoutError, URLError) as error:
+        raise RuntimeError(str(error) or error.__class__.__name__) from error
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        return body
+
+
+def _normalize_exit_ip_payload(payload: Any, provider: str) -> dict[str, Any]:
+    value = payload.get('ip') if isinstance(payload, dict) else payload
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeError('IP 查询服务返回了无效结果')
+    try:
         address = ipaddress.ip_address(value.strip())
-    except (OSError, TimeoutError, ValueError, RuntimeError) as error:
-        raise RuntimeError(str(error)) from error
+    except ValueError as error:
+        raise RuntimeError('IP 查询服务返回了无效地址') from error
 
     timezone_data = payload.get('timezone') if isinstance(payload, dict) else None
     if isinstance(timezone_data, dict):
         timezone_name = timezone_data.get('id') or timezone_data.get('time_zone')
-        utc_offset = timezone_data.get('utc') or timezone_data.get('utc_offset')
+        utc_offset = (
+            timezone_data.get('utc')
+            or timezone_data.get('utc_offset')
+            or timezone_data.get('gmt')
+        )
     else:
         timezone_name = timezone_data
-        utc_offset = payload.get('utc_offset') if isinstance(payload, dict) else None
+        utc_offset = (
+            payload.get('utc_offset') or payload.get('timezone_gmt')
+            if isinstance(payload, dict)
+            else None
+        )
     return {
         'ip': str(address),
         'version': address.version,
@@ -96,12 +122,29 @@ def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
             if isinstance(payload, dict)
             else None
         ),
-        'city': payload.get('city') if isinstance(payload, dict) else None,
+        'city': (
+            payload.get('city') or payload.get('city_name')
+            if isinstance(payload, dict)
+            else None
+        ),
         'timezone': timezone_name,
         'utc_offset': utc_offset,
         'checked_at': _utc_timestamp(),
+        'provider': provider,
         'error': None,
     }
+
+
+def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
+    """Return public IP and geolocation from the selected provider only."""
+    if provider not in EXIT_IP_PROVIDERS:
+        raise RuntimeError('不支持的 IP 查询服务')
+    opener = build_opener(ProxyHandler({}))
+    try:
+        payload = _read_exit_ip_payload(opener, EXIT_IP_PROVIDERS[provider], timeout)
+        return _normalize_exit_ip_payload(payload, provider)
+    except RuntimeError as error:
+        raise RuntimeError(f'{EXIT_IP_LABELS[provider]}：{error}') from error
 
 
 def check_service(name: str, timeout: float) -> dict[str, Any]:

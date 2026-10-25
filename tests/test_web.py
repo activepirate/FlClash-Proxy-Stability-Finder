@@ -3,6 +3,7 @@ import threading
 import unittest
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from urllib.error import HTTPError, URLError
 from unittest.mock import patch
 
 from app import web
@@ -201,7 +202,8 @@ class WebTests(unittest.TestCase):
                     b'"utc":"+04:00"}}'
 
         class Opener:
-            def open(self, _request, timeout):
+            def open(self, request, timeout):
+                self.url = request.full_url
                 self.timeout = timeout
                 return Response()
 
@@ -212,6 +214,58 @@ class WebTests(unittest.TestCase):
         self.assertEqual(result['city'], 'Al Fujairah City')
         self.assertEqual(result['timezone'], 'Asia/Dubai')
         self.assertEqual(result['utc_offset'], '+04:00')
+        self.assertEqual(opener.url, web.EXIT_IP_PROVIDERS['ipwho'])
+
+    def test_check_exit_ip_uses_only_selected_provider(self):
+        class Opener:
+            def __init__(self):
+                self.urls = []
+
+            def open(self, request, timeout):
+                self.urls.append(request.full_url)
+                raise HTTPError(request.full_url, 429, 'Too Many Requests', {}, None)
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            with self.assertRaisesRegex(RuntimeError, r'ipapi\.co：请求过于频繁（HTTP 429）'):
+                web.check_exit_ip(3, 'ipapi')
+        self.assertEqual(opener.urls, [web.EXIT_IP_PROVIDERS['ipapi']])
+
+    def test_check_exit_ip_preserves_provider_label_for_url_errors(self):
+        class Opener:
+            def open(self, _request, timeout):
+                raise URLError('TLS handshake failed')
+
+        with patch.object(web, 'build_opener', return_value=Opener()):
+            with self.assertRaises(RuntimeError) as context:
+                web.check_exit_ip(3, 'ipwho')
+
+        self.assertIn('ipwho.is', str(context.exception))
+        self.assertIn('TLS handshake failed', str(context.exception))
+
+    def test_check_exit_ip_supports_ipwhois_app_as_separate_provider(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b'{"ip":"203.0.113.10","country":"Example",' \
+                    b'"city":"Test City","timezone":"UTC","timezone_gmt":"+00:00"}'
+
+        class Opener:
+            def open(self, request, timeout):
+                self.url = request.full_url
+                return Response()
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_exit_ip(3, 'ipwhois')
+        self.assertEqual(result['provider'], 'ipwhois')
+        self.assertEqual(result['ip'], '203.0.113.10')
+        self.assertEqual(opener.url, web.EXIT_IP_PROVIDERS['ipwhois'])
 
     def test_check_exit_ip_rejects_unknown_provider(self):
         with self.assertRaisesRegex(RuntimeError, '不支持的 IP 查询服务'):
@@ -284,12 +338,23 @@ class WebTests(unittest.TestCase):
             self.assertIn(f'id="{element_id}"', page)
         self.assertNotIn('<span class="exit-ip-cell">服务</span>', page)
         self.assertIn('<h2>出口 IP 检测</h2>', page)
+        self.assertIn('.exit-ip-table-wrap { min-width: 0; }', page)
+        self.assertIn('.exit-ip-table { width: 100%; min-width: 0; }', page)
+        self.assertNotIn('overflow-x: auto;', page[page.index('.exit-ip-panel'):page.index('.proxy-summary-inline')])
+        self.assertNotIn('@container (max-width: 760px)', page)
+        self.assertNotIn('.exit-ip-header { display: none; }', page)
+        self.assertNotIn('.exit-ip-row:not(.exit-ip-header)', page)
+        self.assertIn('.exit-ip-row { display: grid;', page)
+        self.assertIn('grid-template-columns: minmax(0, 1.2fr)', page)
         self.assertIn('检测信息', page)
         self.assertIn('<span class="exit-ip-cell">检测服务</span>', page)
         self.assertNotIn('<h2>采集概览</h2>', page)
         self.assertNotIn('aria-label="采集概览"', page)
         self.assertIn('<h2>服务状态</h2>', page)
         self.assertIn('普通网络请求</span>', page)
+        connection_header = '<thead><tr><th>网络</th><th>进程</th><th>开始时间</th><th>来源</th>'
+        self.assertIn(connection_header, page)
+        self.assertIn('formatChinaTime(connection.start)', page)
         self.assertNotIn('不显示代理节点', page)
         self.assertNotIn('id="service-status-time"', page)
         self.assertIn("const CHINA_TIME_ZONE = 'Asia/Shanghai'", page)
@@ -311,10 +376,11 @@ class WebTests(unittest.TestCase):
         self.assertIn('id="service-url-error"', page)
         self.assertIn('data.services.forEach((result) => setServiceCard(result.url, result));', page)
         self.assertIn('服务 URL 已存在', page)
-        for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is')):
+        for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is'), ('ipwhois', 'ipwhois.app')):
             self.assertIn(f'data-provider="{provider}"', page)
             self.assertIn(f'>{label}</button>', page)
         self.assertNotIn('>检测服务</button>', page)
+        self.assertNotIn('fallback', page)
         self.assertNotIn('await refreshExitIp()', page)
         for removed_control in ('id="select-all"', 'id="select-none"', 'id="select-toggle"', 'class="proxy-check'):
             self.assertNotIn(removed_control, page)
