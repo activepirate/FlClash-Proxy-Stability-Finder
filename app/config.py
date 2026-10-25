@@ -22,6 +22,11 @@ DEFAULTS: dict[str, Any] = {
     'timeout_ms': 5000,
     'request_timeout': 10,
     'test_url': 'https://www.gstatic.com/generate_204',
+    'services': [
+        {'name': 'Google', 'url': 'https://www.google.com/generate_204'},
+        {'name': 'GitHub', 'url': 'https://github.com/'},
+        {'name': '百度', 'url': 'https://www.baidu.com/'},
+    ],
 }
 
 
@@ -38,6 +43,51 @@ def _number(value: Any, name: str, *, integer: bool = False, minimum: float = 0)
         suffix = '正数' if minimum > 0 else '非负数'
         raise ValueError(f'{name}须为{suffix}')
     return converted
+
+
+def normalize_service_url(url: Any) -> str:
+    value = str(url).strip()
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        _ = parsed.port
+    except ValueError as error:
+        raise ValueError('服务 URL 必须是有效的 http:// 或 https:// 地址') from error
+    if (
+        len(value) > 2048
+        or any(character.isspace() for character in value)
+        or parsed.scheme not in {'http', 'https'}
+        or not parsed.netloc
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError('服务 URL 必须是有效的 http:// 或 https:// 地址')
+    return value
+
+
+def normalize_services(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list) or not value or len(value) > 50:
+        raise ValueError('服务检测列表必须包含 1 到 50 项')
+    services = []
+    seen_names = set()
+    seen_urls = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError('服务检测项格式错误')
+        name = str(item.get('name', '')).strip()
+        if not name or len(name) > 80:
+            raise ValueError('服务名称不能为空且不能超过 80 个字符')
+        url = normalize_service_url(item.get('url', ''))
+        name_key = name.casefold()
+        if name_key in seen_names:
+            raise ValueError(f'服务名称重复：{name}')
+        if url in seen_urls:
+            raise ValueError(f'服务 URL 重复：{url}')
+        seen_names.add(name_key)
+        seen_urls.add(url)
+        services.append({'name': name, 'url': url})
+    return services
 
 
 def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -59,6 +109,7 @@ def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     test_url = urlsplit(values['test_url'])
     if test_url.scheme not in {'http', 'https'} or not test_url.netloc:
         raise ValueError('测试 URL 必须是有效的 http:// 或 https:// 地址')
+    values['services'] = normalize_services(values['services'])
     return values
 
 

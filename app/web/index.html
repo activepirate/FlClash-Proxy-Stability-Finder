@@ -66,6 +66,11 @@
       display: block; width: 100%; min-width: 0; height: 35px; padding: 0 9px;
       border: 1px solid #cbd5d9; border-radius: 4px; background: #fff; color: var(--ink);
     }
+    .field input[aria-invalid="true"] { border-color: var(--red); }
+    .field-error {
+      display: block; min-height: 0; margin-top: 5px; color: var(--red); font-size: 12px;
+    }
+    .field-error:empty { display: none; }
     input:focus { outline: 2px solid #a5d8ca; outline-offset: 1px; border-color: var(--green); }
     .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
     .checkline { display: flex; align-items: center; gap: 8px; margin: 1px 0 15px; color: #46565e; font-size: 13px; }
@@ -85,7 +90,9 @@
     .workspace, .dashboard-columns, .primary-column, .connection-column { min-width: 0; }
     .dashboard-columns { width: 100%; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); align-items: start; gap: 16px; }
     .primary-column, .connection-column { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
-    .exit-ip-panel { min-height: 82px; padding: 12px 16px; }
+    .exit-ip-panel { min-height: 82px; padding: 0 16px 12px; }
+    .module-head { min-height: 42px; display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+    .exit-ip-panel .module-head { margin-bottom: 8px; }
     .exit-ip-table-wrap { min-width: 0; overflow-x: auto; }
     .exit-ip-table { min-width: 1020px; }
     .exit-ip-row { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(105px, 1fr)) minmax(160px, 1.2fr) 100px; align-items: center; gap: 12px; min-height: 48px; }
@@ -96,16 +103,49 @@
     .exit-ip-status { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
     .exit-ip-provider { width: 100%; padding-inline: 8px; }
     .exit-ip-provider:disabled { cursor: wait; }
-    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+    .proxy-summary-inline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+    .service-status-head { justify-content: space-between; padding-inline: 14px; }
+    .service-status-list-header {
+      display: grid;
+      grid-template-columns: minmax(120px, .75fr) minmax(0, 1.8fr) minmax(0, 1.35fr) minmax(0, .8fr) auto;
+      align-items: center;
+      gap: 10px 14px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      background: #f8faf9;
+      font-size: 12px;
+    }
+    .service-status-list-header span:last-child { text-align: right; }
+    .service-status-list { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .service-status-item {
+      display: grid;
+      grid-template-columns: minmax(120px, .75fr) minmax(0, 1.8fr) minmax(0, 1.35fr) minmax(0, .8fr) auto;
+      align-items: center;
+      gap: 10px 14px;
+      min-width: 0;
+      padding: 10px 14px;
+    }
+    .service-status-item + .service-status-item { border-top: 1px solid var(--line); }
+    .service-status-name { font-weight: 600; }
+    .service-status-detail { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .service-status-result { color: var(--ink); }
+    .service-status-url { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .service-status-item[data-status="available"] .service-status-result { color: var(--green); }
+    .service-status-item[data-status="timeout"] .service-status-result,
+    .service-status-item[data-status="failed"] .service-status-result { color: var(--red); }
+    .service-status-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .service-check-one { min-height: 28px; padding-inline: 8px; font-size: 12px; }
+    .service-remove { min-height: 28px; padding-inline: 8px; color: var(--red); font-size: 12px; }
     .metric { min-height: 83px; padding: 13px 16px; border-right: 1px solid var(--line); }
     .metric:last-child { border-right: 0; }
     .metric-label { color: var(--muted); font-size: 12px; }
     .metric-value { display: block; margin-top: 5px; font-size: 21px; line-height: 1.2; font-variant-numeric: tabular-nums; }
     .section-head { min-width: 0; min-height: 49px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); }
     .section-head > * { min-width: 0; }
-    .proxy-results-head { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: start; gap: 8px; padding-block: 10px; }
+    .proxy-results-head { justify-content: flex-start; padding-block: 10px; }
     .proxy-results-head .section-title { align-items: baseline; }
-    .proxy-results-head .section-actions { justify-content: flex-end; }
+    .proxy-results-actions { justify-content: flex-end; padding: 10px 14px; border-bottom: 1px solid var(--line); }
     .section-title { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
     .endpoint { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
     .section-actions { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -193,7 +233,7 @@
       .topbar { padding: 0 14px; }
       .brand { gap: 7px; font-size: 12px; }
       main { padding: 12px; }
-      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .proxy-summary-inline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .section-title { width: 100%; }
       .metric:nth-child(2) { border-right: 0; }
       .metric:nth-child(n+3) { border-top: 1px solid var(--line); }
@@ -201,6 +241,21 @@
       .section-actions { width: 100%; justify-content: flex-start; }
       th, td { padding: 8px; }
       .wide-only { display: none; }
+      .service-status-list-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 10px;
+        padding: 7px 12px;
+      }
+      .service-status-list-header span:nth-child(2),
+      .service-status-list-header span:nth-child(3),
+      .service-status-list-header span:nth-child(4) { display: none; }
+      .service-status-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 10px;
+        padding: 10px 12px;
+      }
+      .service-status-actions { grid-column: 2; grid-row: 1 / span 4; align-self: center; }
+      .service-status-head { align-items: flex-start; flex-direction: column; padding-block: 10px; }
     }
   </style>
 </head>
@@ -213,6 +268,7 @@
       <div class="dashboard-columns" aria-label="采集结果">
         <div class="primary-column">
           <div class="panel exit-ip-panel" aria-label="出口 IP">
+            <div class="module-head"><h2>出口 IP 检测</h2></div>
             <div class="exit-ip-table-wrap">
               <div class="exit-ip-table">
                 <div class="exit-ip-row exit-ip-header" role="row">
@@ -255,22 +311,33 @@
             </div>
             <div class="exit-ip-status" id="exit-ip-status">请选择检测服务</div>
           </div>
-          <div class="panel summary" aria-label="采集概览">
-            <div class="metric"><span class="metric-label">代理数</span><strong class="metric-value" id="metric-proxies">0</strong></div>
-            <div class="metric"><span class="metric-label">已完成样本</span><strong class="metric-value" id="metric-samples">0</strong></div>
-            <div class="metric"><span class="metric-label">整体成功率</span><strong class="metric-value" id="metric-rate">—</strong></div>
-            <div class="metric"><span class="metric-label">当前状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
-          </div>
+          <section class="panel" aria-label="服务状态">
+            <div class="section-head service-status-head">
+              <div class="section-title"><h2>服务状态</h2><span class="endpoint">普通网络请求</span></div>
+              <div class="service-status-actions">
+                <button class="button" id="open-service-add" type="button">添加服务</button>
+                <button class="button primary" id="service-check-all" type="button">检测全部</button>
+              </div>
+            </div>
+            <div class="service-status-list-header" aria-hidden="true"><span>服务名称</span><span>服务 URL</span><span>检测结果</span><span>检测时间</span><span>操作</span></div>
+            <div class="service-status-list" id="service-status-list" role="list"></div>
+          </section>
 
           <section class="panel">
             <div class="section-head proxy-results-head">
               <div class="section-title"><h2>代理测试结果</h2><span class="endpoint">GET /proxies · GET /proxies/{name}/delay</span></div>
-              <div class="section-actions">
-                <button id="refresh" class="button" type="button">刷新代理</button>
-                <button id="run" class="button primary" type="button">开始采集</button>
-                <button id="stop" class="button danger" type="button" disabled>停止</button>
-                <button id="open-settings" class="button" type="button">设置</button>
-              </div>
+            </div>
+            <div class="proxy-summary-inline" aria-label="代理测试概览">
+              <div class="metric"><span class="metric-label">代理数</span><strong class="metric-value" id="metric-proxies">0</strong></div>
+              <div class="metric"><span class="metric-label">已完成样本</span><strong class="metric-value" id="metric-samples">0</strong></div>
+              <div class="metric"><span class="metric-label">整体成功率</span><strong class="metric-value" id="metric-rate">—</strong></div>
+              <div class="metric"><span class="metric-label">当前状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
+            </div>
+            <div class="section-actions proxy-results-actions">
+              <button id="refresh" class="button" type="button">刷新代理</button>
+              <button id="run" class="button primary" type="button">开始采集</button>
+              <button id="stop" class="button danger" type="button" disabled>停止</button>
+              <button id="open-settings" class="button" type="button">设置</button>
             </div>
             <div id="active-sorts" class="active-sorts empty" aria-label="当前排序" aria-live="polite"></div>
             <div class="table-wrap">
@@ -335,6 +402,23 @@
     </div>
   </main>
 
+  <dialog id="service-add-dialog" aria-labelledby="service-add-title">
+    <div class="dialog-head">
+      <div><h1 id="service-add-title">添加服务</h1><p class="subhead">添加一个要检测的 HTTP 服务地址</p></div>
+      <button id="close-service-add" class="button" type="button">关闭</button>
+    </div>
+    <form id="service-add-form" novalidate>
+      <div class="dialog-body">
+        <label class="field"><span>服务名称</span><input id="service-name" maxlength="80" placeholder="例如：公司内网" aria-describedby="service-name-error" aria-invalid="false" required><small class="field-error" id="service-name-error" role="alert"></small></label>
+        <label class="field"><span>服务 URL</span><input id="service-url" type="text" inputmode="url" maxlength="2048" placeholder="https://example.com/health" aria-describedby="service-url-error" aria-invalid="false" required><small class="field-error" id="service-url-error" role="alert"></small></label>
+      </div>
+      <div class="dialog-actions">
+        <button id="cancel-service-add" class="button" type="button">取消</button>
+        <button id="submit-service-add" class="button primary" type="submit">添加服务</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <div class="dialog-head">
       <div><h1 id="settings-title">采集设置</h1><p class="subhead">连接本机外部控制器</p></div>
@@ -360,10 +444,32 @@
   <div id="toast" class="toast" role="status"></div>
   <script>
     const $ = (id) => document.getElementById(id);
+    const CHINA_TIME_ZONE = 'Asia/Shanghai';
+    const CHINA_TIME_OFFSET = '+08:00';
+    const chinaDateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+      timeZone: CHINA_TIME_ZONE,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    });
     let proxies = [];
     let proxyStats = [];
     let proxySorts = [];
+    let serviceDefinitions = [];
     let toastTimer;
+
+    function parseTimestamp(value) {
+      if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+      if (typeof value !== 'string' || !value.trim()) return null;
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function formatChinaTime(value) {
+      const date = parseTimestamp(value);
+      return date
+        ? `${chinaDateTimeFormatter.format(date).replaceAll('/', '-')} ${CHINA_TIME_OFFSET}`
+        : (value || '');
+    }
 
     function notify(message, error = false) {
       const toast = $('toast');
@@ -383,6 +489,7 @@
         concurrency: Number($('concurrency').value),
         timeout_ms: Number($('timeout-ms').value),
         request_timeout: Number($('request-timeout').value),
+        services: serviceDefinitions,
       };
     }
 
@@ -399,6 +506,28 @@
 
     function formData() {
       return values();
+    }
+
+    function setServiceFieldError(fieldId, errorId, message = '') {
+      const field = $(fieldId);
+      const error = $(errorId);
+      error.textContent = message;
+      field.setAttribute('aria-invalid', message ? 'true' : 'false');
+      if (message) field.setAttribute('aria-describedby', errorId);
+      else field.removeAttribute('aria-describedby');
+    }
+
+    function clearServiceErrors() {
+      setServiceFieldError('service-name', 'service-name-error');
+      setServiceFieldError('service-url', 'service-url-error');
+    }
+
+    function showServiceSaveError(message) {
+      if (/url|地址|http/i.test(message)) {
+        setServiceFieldError('service-url', 'service-url-error', message);
+      } else {
+        setServiceFieldError('service-name', 'service-name-error', message);
+      }
     }
 
     async function saveConfig(showMessage = true) {
@@ -419,6 +548,8 @@
       $('timeout-ms').value = config.timeout_ms;
       $('request-timeout').value = config.request_timeout;
       $('secret').placeholder = config.secret_configured ? '密钥已保存，留空保持不变' : '未设置';
+      serviceDefinitions = config.services || [];
+      renderServiceCards();
     }
 
     function updateSortHeaders() {
@@ -614,7 +745,7 @@
       }
       logs.forEach((entry) => {
         const line = document.createElement('div'); line.className = 'log-line controller-log';
-        const time = document.createElement('time'); time.textContent = entry.time || '';
+        const time = document.createElement('time'); time.textContent = formatChinaTime(entry.time);
         const level = document.createElement('span'); level.className = 'controller-log-level'; level.textContent = entry.level || '';
         const message = document.createElement('span');
         const fields = entry.fields && typeof entry.fields === 'object' ? ` ${JSON.stringify(entry.fields)}` : '';
@@ -679,8 +810,9 @@
       try {
         const data = await api(`/api/exit-ip?provider=${encodeURIComponent(provider)}`);
         if (data.ip) {
-          setExitIpRow(provider, { ...data, meta: `IPv${data.version} · ${data.checked_at || '刚刚'}` });
-          status.textContent = `IPv${data.version} · ${data.checked_at || '刚刚'}`;
+          const checkedAt = formatChinaTime(data.checked_at) || '刚刚';
+          setExitIpRow(provider, { ...data, meta: `IPv${data.version} · ${checkedAt}` });
+          status.textContent = `IPv${data.version} · ${checkedAt}`;
         } else {
           setExitIpRow(provider, {});
           status.textContent = data.error || '检测失败';
@@ -692,6 +824,118 @@
         if (showError) notify(error.message, true);
       } finally {
         button.disabled = false;
+      }
+    }
+
+    function renderServiceCards() {
+      const list = $('service-status-list');
+      list.replaceChildren(...serviceDefinitions.map((service) => {
+        const card = document.createElement('div');
+        card.className = 'service-status-item';
+        card.dataset.serviceUrl = service.url;
+        card.dataset.status = 'idle';
+        card.setAttribute('role', 'listitem');
+        card.innerHTML = `<div class="service-status-name"></div><div class="service-status-detail service-status-url"></div><div class="service-status-detail service-status-result">尚未检测</div><div class="service-status-detail" data-field="meta">—</div><div class="service-status-actions"><button class="button service-check-one" type="button">检测</button><button class="button service-remove" type="button">删除</button></div>`;
+        card.querySelector('.service-status-name').textContent = service.name;
+        card.querySelector('.service-status-url').textContent = service.url;
+        card.querySelector('.service-check-one').addEventListener('click', () => checkServices([service.url]));
+        card.querySelector('.service-remove').addEventListener('click', () => removeService(service.url));
+        return card;
+      }));
+    }
+
+    function setServiceCard(url, result) {
+      const card = [...document.querySelectorAll('[data-service-url]')].find((item) => item.dataset.serviceUrl === url);
+      if (!card) return;
+      const statusText = { available: '可访问', timeout: '超时', failed: '连接失败' };
+      card.dataset.status = result.status;
+      card.querySelector('.service-status-result').textContent = result.status_code
+        ? `${statusText[result.status] || result.status} · HTTP ${result.status_code} · ${result.delay_ms} ms`
+        : `${statusText[result.status] || result.status}${result.error ? ` · ${result.error}` : ''}`;
+      card.querySelector('[data-field="meta"]').textContent = result.checked_at
+        ? formatChinaTime(result.checked_at)
+        : '—';
+    }
+
+    async function checkServices(urls = null) {
+      const cards = urls
+        ? [...document.querySelectorAll('[data-service-url]')].filter((card) => urls.includes(card.dataset.serviceUrl))
+        : [...document.querySelectorAll('[data-service-url]')];
+      const buttons = cards.map((card) => card.querySelector('.service-check-one'));
+      buttons.forEach((button) => { button.disabled = true; });
+      buttons.forEach((button) => {
+        const card = button.closest('[data-service-url]');
+        card.dataset.status = 'checking';
+        card.querySelector('.service-status-result').textContent = '检测中…';
+      });
+      $('service-check-all').disabled = true;
+      try {
+        const query = urls ? urls.map((url) => `url=${encodeURIComponent(url)}`).join('&') : '';
+        const data = await api(`/api/services${query ? `?${query}` : ''}`);
+        data.services.forEach((result) => setServiceCard(result.url, result));
+      } catch (error) {
+        buttons.forEach((button) => {
+          const card = button.closest('[data-service-url]');
+          card.dataset.status = 'failed';
+          card.querySelector('.service-status-result').textContent = error.message;
+        });
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+        $('service-check-all').disabled = false;
+      }
+    }
+
+    async function removeService(url) {
+      serviceDefinitions = serviceDefinitions.filter((service) => service.url !== url);
+      if (!serviceDefinitions.length) {
+        notify('至少保留一个服务检测项', true);
+        await loadConfig();
+        return;
+      }
+      try {
+        await saveConfig();
+        renderServiceCards();
+      } catch (error) {
+        notify(error.message, true);
+        await loadConfig();
+      }
+    }
+
+    async function addService() {
+      const name = $('service-name').value.trim();
+      const url = $('service-url').value.trim();
+      clearServiceErrors();
+      if (!name) {
+        setServiceFieldError('service-name', 'service-name-error', '请输入服务名称');
+        $('service-name').focus();
+        return;
+      }
+      if (!/^https?:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(url)) {
+        setServiceFieldError('service-url', 'service-url-error', '服务 URL 必须以 http:// 或 https:// 开头');
+        $('service-url').focus();
+        return;
+      }
+      const duplicatedName = serviceDefinitions.some((service) => service.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+      const duplicatedUrl = serviceDefinitions.some((service) => service.url === url);
+      if (duplicatedName || duplicatedUrl) {
+        if (duplicatedName) setServiceFieldError('service-name', 'service-name-error', '服务名称已存在');
+        if (duplicatedUrl) setServiceFieldError('service-url', 'service-url-error', '服务 URL 已存在');
+        (duplicatedName ? $('service-name') : $('service-url')).focus();
+        return;
+      }
+      const submit = $('submit-service-add');
+      submit.disabled = true;
+      serviceDefinitions.push({ name, url });
+      try {
+        await saveConfig();
+        $('service-add-form').reset();
+        renderServiceCards();
+        $('service-add-dialog').close();
+      } catch (error) {
+        serviceDefinitions.pop();
+        showServiceSaveError(error.message);
+      } finally {
+        submit.disabled = false;
       }
     }
 
@@ -744,6 +988,14 @@
 
     $('open-settings').addEventListener('click', () => $('settings-dialog').showModal());
     $('close-settings').addEventListener('click', () => $('settings-dialog').close());
+    $('open-service-add').addEventListener('click', () => {
+      $('service-add-form').reset();
+      clearServiceErrors();
+      $('service-add-dialog').showModal();
+      $('service-name').focus();
+    });
+    $('close-service-add').addEventListener('click', () => $('service-add-dialog').close());
+    $('cancel-service-add').addEventListener('click', () => $('service-add-dialog').close());
     $('save').addEventListener('click', async () => {
       try {
         await saveConfig();
@@ -755,6 +1007,13 @@
     $('refresh').addEventListener('click', () => refreshProxies().catch((error) => notify(error.message, true)));
     document.querySelectorAll('.exit-ip-provider').forEach((button) => {
       button.addEventListener('click', () => refreshExitIp(button.dataset.provider, true));
+    });
+    $('service-check-all').addEventListener('click', () => checkServices());
+    $('service-name').addEventListener('input', () => setServiceFieldError('service-name', 'service-name-error'));
+    $('service-url').addEventListener('input', () => setServiceFieldError('service-url', 'service-url-error'));
+    $('service-add-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      addService();
     });
     $('run').addEventListener('click', startRun);
     $('stop').addEventListener('click', stopRun);

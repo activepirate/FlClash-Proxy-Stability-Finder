@@ -6,18 +6,21 @@ import argparse
 import ipaddress
 import json
 import math
+import socket
 import threading
 import time
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
-from app.config import DEFAULTS, load_config, normalize_config, save_config
+from app.config import DEFAULTS, load_config, normalize_config, normalize_service_url, save_config
 from app.recorder import Controller, run_session, select_proxies, summarize
 
 
@@ -29,6 +32,12 @@ EXIT_IP_PROVIDERS = {
     'ipapi': 'https://ipapi.co/json/',
     'ipwho': 'https://ipwho.is/',
 }
+SERVICE_TARGETS = {
+    'google': ('Google', 'https://www.google.com/generate_204'),
+    'github': ('GitHub', 'https://github.com/'),
+    'baidu': ('百度', 'https://www.baidu.com/'),
+}
+MAX_SERVICE_CHECKS = 50
 
 
 def _empty_monitor() -> dict[str, Any]:
@@ -93,6 +102,81 @@ def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
         'checked_at': _utc_timestamp(),
         'error': None,
     }
+
+
+def check_service(name: str, timeout: float) -> dict[str, Any]:
+    """Check reachability with the host's normal URL opener configuration."""
+    target = SERVICE_TARGETS.get(name)
+    if target is None:
+        raise ValueError('不支持的服务')
+    label, url = target
+    return _check_service_url(url, timeout, name=name, label=label)
+
+
+def _check_service_url(url: str, timeout: float, *, name: str, label: str) -> dict[str, Any]:
+    request = Request(url, headers={'User-Agent': 'FlClashRecorder/1.0'})
+    started = time.monotonic()
+    status_code = None
+    error = None
+    timed_out = False
+    try:
+        with build_opener().open(request, timeout=timeout) as response:
+            status_code = response.status
+    except HTTPError as exception:
+        # An HTTP response, including 4xx/5xx, proves the service was reached.
+        status_code = exception.code
+    except (OSError, TimeoutError, URLError) as exception:
+        error = str(exception) or exception.__class__.__name__
+        timed_out = isinstance(exception, (TimeoutError, socket.timeout)) or (
+            isinstance(exception, URLError)
+            and isinstance(exception.reason, (TimeoutError, socket.timeout))
+        )
+    elapsed_ms = round((time.monotonic() - started) * 1000)
+    return {
+        'name': name,
+        'label': label,
+        'url': url,
+        'status': 'available' if status_code is not None else ('timeout' if timed_out else 'failed'),
+        'status_code': status_code,
+        'delay_ms': elapsed_ms if status_code is not None else None,
+        'checked_at': _utc_timestamp(),
+        'error': error,
+    }
+
+
+def check_services(
+    timeout: float,
+    names: list[Any] | None = None,
+    urls: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    selected = list(SERVICE_TARGETS) if names is None and urls is None else (names or [])
+    if selected and all(isinstance(item, dict) for item in selected):
+        targets = []
+        for item in selected:
+            name = str(item.get('name', '')).strip()
+            url = normalize_service_url(item.get('url', ''))
+            if not name:
+                raise ValueError('服务检测项格式错误')
+            targets.append((name, url, name))
+    else:
+        if not all(isinstance(name, str) for name in selected):
+            raise ValueError('服务检测列表格式错误')
+        unknown = [name for name in selected if name not in SERVICE_TARGETS]
+        if unknown:
+            raise ValueError(f'不支持的服务: {", ".join(unknown)}')
+        targets = [(name, SERVICE_TARGETS[name][1], SERVICE_TARGETS[name][0]) for name in selected]
+    for url in urls or []:
+        normalized_url = normalize_service_url(url)
+        targets.append((normalized_url, normalized_url, normalized_url))
+    if not targets:
+        return []
+    if len(targets) > MAX_SERVICE_CHECKS:
+        raise ValueError(f'单次最多检测 {MAX_SERVICE_CHECKS} 个服务')
+    with ThreadPoolExecutor(max_workers=min(8, len(targets))) as executor:
+        return list(executor.map(
+            lambda target: _check_service_url(target[1], timeout, name=target[0], label=target[2]),
+            targets,
+        ))
 
 
 def classify_connection(connection: dict[str, Any]) -> str:
@@ -485,6 +569,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                         'error': str(error),
                     }
                 self._json(200, result)
+            elif path == '/api/services':
+                config = load_config()
+                query = parse_qs(urlsplit(self.path).query)
+                names = query.get('name')
+                urls = query.get('url')
+                if urls:
+                    services = check_services(float(config['request_timeout']), names, urls)
+                elif names:
+                    services = check_services(float(config['request_timeout']), names)
+                else:
+                    services = check_services(float(config['request_timeout']), config['services'])
+                self._json(200, {'services': services})
             elif path == '/api/state':
                 self.service.ensure_monitor()
                 self._json(200, self.service.state())

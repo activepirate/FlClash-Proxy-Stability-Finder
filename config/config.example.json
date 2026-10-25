@@ -6,5 +6,19 @@
   "concurrency": 20,
   "timeout_ms": 5000,
   "request_timeout": 10,
-  "test_url": "https://www.gstatic.com/generate_204"
+  "test_url": "https://www.gstatic.com/generate_204",
+  "services": [
+    {
+      "name": "Google",
+      "url": "https://www.google.com/generate_204"
+    },
+    {
+      "name": "GitHub",
+      "url": "https://github.com/"
+    },
+    {
+      "name": "百度",
+      "url": "https://www.baidu.com/"
+    }
+  ]
 }

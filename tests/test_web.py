@@ -87,6 +87,75 @@ class WebTests(unittest.TestCase):
         self.assertIsNone(result['error'])
         self.assertEqual(opener.timeout, 3)
 
+    def test_check_service_measures_normal_request_and_accepts_http_error_response(self):
+        class Response:
+            status = 204
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        class Opener:
+            def open(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return Response()
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_service('google', 4)
+        self.assertEqual(result['status'], 'available')
+        self.assertEqual(result['status_code'], 204)
+        self.assertIsInstance(result['delay_ms'], int)
+        self.assertEqual(opener.request.full_url, web.SERVICE_TARGETS['google'][1])
+        self.assertEqual(opener.timeout, 4)
+
+    def test_check_service_reports_timeout_without_delay(self):
+        class Opener:
+            def open(self, _request, timeout):
+                raise TimeoutError('timed out')
+
+        with patch.object(web, 'build_opener', return_value=Opener()):
+            result = web.check_service('baidu', 1)
+        self.assertEqual(result['status'], 'timeout')
+        self.assertIsNone(result['delay_ms'])
+        self.assertEqual(result['error'], 'timed out')
+
+    def test_check_services_rejects_unknown_names(self):
+        with self.assertRaises(ValueError):
+            web.check_services(1, ['unknown'])
+
+    def test_check_services_preserves_configured_name_and_url(self):
+        class Response:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        class Opener:
+            def open(self, request, timeout):
+                self.request = request
+                return Response()
+
+        opener = Opener()
+        with patch.object(web, 'build_opener', return_value=opener):
+            result = web.check_services(1, [{'name': '内网健康检查', 'url': 'https://example.com/health'}])
+        self.assertEqual(result[0]['name'], '内网健康检查')
+        self.assertEqual(result[0]['url'], 'https://example.com/health')
+
+    def test_check_services_limits_batch_size(self):
+        services = [
+            {'name': f'service-{index}', 'url': f'https://example-{index}.test/' }
+            for index in range(web.MAX_SERVICE_CHECKS + 1)
+        ]
+        with self.assertRaises(ValueError):
+            web.check_services(1, services)
+
     def test_check_exit_ip_reads_ipify_plain_text(self):
         class Response:
             def __init__(self, body):
@@ -214,8 +283,34 @@ class WebTests(unittest.TestCase):
         ):
             self.assertIn(f'id="{element_id}"', page)
         self.assertNotIn('<span class="exit-ip-cell">服务</span>', page)
+        self.assertIn('<h2>出口 IP 检测</h2>', page)
         self.assertIn('检测信息', page)
         self.assertIn('<span class="exit-ip-cell">检测服务</span>', page)
+        self.assertNotIn('<h2>采集概览</h2>', page)
+        self.assertNotIn('aria-label="采集概览"', page)
+        self.assertIn('<h2>服务状态</h2>', page)
+        self.assertIn('普通网络请求</span>', page)
+        self.assertNotIn('不显示代理节点', page)
+        self.assertNotIn('id="service-status-time"', page)
+        self.assertIn("const CHINA_TIME_ZONE = 'Asia/Shanghai'", page)
+        self.assertIn("const CHINA_TIME_OFFSET = '+08:00'", page)
+        self.assertIn('formatChinaTime(entry.time)', page)
+        self.assertIn('? formatChinaTime(result.checked_at)', page)
+        self.assertNotIn('检测时间：中国时间 ${formatChinaTime(result.checked_at)}', page)
+        self.assertIn('服务名称</span><span>服务 URL</span><span>检测结果</span><span>检测时间</span><span>操作', page)
+        self.assertIn('id="service-status-list" role="list"', page)
+        self.assertIn("card.setAttribute('role', 'listitem')", page)
+        self.assertIn('id="open-service-add"', page)
+        self.assertIn('id="service-add-dialog"', page)
+        self.assertIn('id="service-add-form"', page)
+        self.assertIn('id="submit-service-add" class="button primary" type="submit"', page)
+        self.assertIn("$('service-add-form').addEventListener('submit'", page)
+        self.assertIn('id="service-name"', page)
+        self.assertIn('id="service-url"', page)
+        self.assertIn('id="service-name-error"', page)
+        self.assertIn('id="service-url-error"', page)
+        self.assertIn('data.services.forEach((result) => setServiceCard(result.url, result));', page)
+        self.assertIn('服务 URL 已存在', page)
         for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is')):
             self.assertIn(f'data-provider="{provider}"', page)
             self.assertIn(f'>{label}</button>', page)
@@ -237,11 +332,16 @@ class WebTests(unittest.TestCase):
         self.assertLess(connection_column.index('<h2>代理与直连流量</h2>'), connection_column.index('<h2>活动连接</h2>'))
         self.assertLess(connection_column.index('<h2>活动连接</h2>'), connection_column.index('<h2>控制器日志</h2>'))
         primary_column = page[page.index('<div class="primary-column">'):page.index('<div class="connection-column">')]
-        self.assertLess(primary_column.index('aria-label="采集概览"'), primary_column.index('<h2>代理测试结果</h2>'))
-        results_head = primary_column[primary_column.index('class="section-head proxy-results-head"'):primary_column.index('<div class="table-wrap">')]
-        self.assertLess(results_head.index('<h2>代理测试结果</h2>'), results_head.index('class="section-actions"'))
-        self.assertLess(results_head.index('id="stop"'), results_head.index('id="open-settings"'))
-        self.assertIn('.proxy-results-head .section-actions { justify-content: flex-end; }', page)
+        self.assertNotIn('class="panel summary"', primary_column)
+        results_panel = primary_column[primary_column.index('<h2>代理测试结果</h2>'):primary_column.index('<section class="panel logs">')]
+        self.assertLess(results_panel.index('<h2>代理测试结果</h2>'), results_panel.index('aria-label="代理测试概览"'))
+        self.assertLess(results_panel.index('aria-label="代理测试概览"'), results_panel.index('proxy-results-actions'))
+        self.assertLess(results_panel.index('proxy-results-actions'), results_panel.index('id="active-sorts"'))
+        results_panel_markup = primary_column[primary_column.index('class="section-head proxy-results-head"'):primary_column.index('<div class="table-wrap">')]
+        self.assertLess(results_panel_markup.index('<h2>代理测试结果</h2>'), results_panel_markup.index('aria-label="代理测试概览"'))
+        self.assertLess(results_panel_markup.index('aria-label="代理测试概览"'), results_panel_markup.index('proxy-results-actions'))
+        self.assertLess(results_panel_markup.index('id="stop"'), results_panel_markup.index('id="open-settings"'))
+        self.assertIn('.proxy-results-actions { justify-content: flex-end;', page)
         for label in ('GET /proxies/{name}/delay', 'GET /connections', 'GET /traffic', 'GET /logs?level=info&amp;format=structured', '本地'):
             self.assertIn(label, page)
         self.assertNotIn('/configs', page)
@@ -278,6 +378,47 @@ class WebTests(unittest.TestCase):
         payload = json.loads(response.read())
         self.assertEqual(response.status, 200)
         self.assertEqual(payload['ip'], '203.0.113.10')
+
+    def test_services_api_checks_requested_services(self):
+        expected = [{'name': 'github', 'status': 'available', 'delay_ms': 42}]
+        with patch.object(
+            web,
+            'load_config',
+            return_value={'request_timeout': 2},
+        ), patch.object(web, 'check_services', return_value=expected) as check:
+            response = self.request('GET', '/api/services?name=github')
+        payload = json.loads(response.read())
+        self.assertEqual(response.status, 200)
+        self.assertEqual(payload['services'], expected)
+        check.assert_called_once_with(2.0, ['github'])
+
+    def test_services_api_uses_configured_services_by_default(self):
+        configured = [
+            {'name': 'Google', 'url': 'https://www.google.com/generate_204'},
+            {'name': '自定义', 'url': 'https://example.com/health'},
+        ]
+        expected = [{'name': '自定义', 'url': 'https://example.com/health', 'status': 'available'}]
+        with patch.object(
+            web,
+            'load_config',
+            return_value={'request_timeout': 2, 'services': configured},
+        ), patch.object(web, 'check_services', return_value=expected) as check:
+            response = self.request('GET', '/api/services')
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.read())['services'], expected)
+        check.assert_called_once_with(2.0, configured)
+
+    def test_services_api_accepts_custom_url(self):
+        expected = [{'name': 'https://example.com/health', 'status': 'failed'}]
+        with patch.object(
+            web,
+            'load_config',
+            return_value={'request_timeout': 2},
+        ), patch.object(web, 'check_services', return_value=expected) as check:
+            response = self.request('GET', '/api/services?url=https%3A%2F%2Fexample.com%2Fhealth')
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.read())['services'], expected)
+        check.assert_called_once_with(2.0, None, ['https://example.com/health'])
 
     def test_rejects_non_local_host(self):
         response = self.request('GET', '/api/state', headers={'Host': 'example.com'})

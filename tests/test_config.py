@@ -19,6 +19,20 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(values['interval'], 1.5)
         self.assertEqual(values['concurrency'], 4)
         self.assertEqual(values['test_url'], 'https://example.com/check')
+        self.assertEqual(
+            values['services'],
+            [
+                {'name': 'Google', 'url': 'https://www.google.com/generate_204'},
+                {'name': 'GitHub', 'url': 'https://github.com/'},
+                {'name': '百度', 'url': 'https://www.baidu.com/'},
+            ],
+        )
+
+    def test_normalize_config_accepts_custom_services(self):
+        values = normalize_config({
+            'services': [{'name': '内部健康检查', 'url': ' http://example.test/health ' }],
+        })
+        self.assertEqual(values['services'], [{'name': '内部健康检查', 'url': 'http://example.test/health'}])
 
     def test_normalize_config_rejects_invalid_urls_and_fractional_counts(self):
         with self.assertRaises(ValueError):
@@ -27,6 +41,16 @@ class ConfigTests(unittest.TestCase):
             normalize_config({'test_url': 'not-a-url'})
         with self.assertRaises(ValueError):
             normalize_config({'rounds': 1.5})
+        with self.assertRaises(ValueError):
+            normalize_config({'services': [{'name': 'bad', 'url': 'ftp://example.com'}]})
+        with self.assertRaises(ValueError):
+            normalize_config({'services': [{'name': 'same', 'url': 'https://example.com'}, {'name': 'SAME', 'url': 'https://other.example'}]})
+
+    def test_normalize_config_rejects_malformed_service_hosts(self):
+        for url in ('http://:80/', 'http://example.com:99999/', 'http://exa mple.com/', 'http://example.com/\nhealth'):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    normalize_config({'services': [{'name': 'invalid', 'url': url}]})
 
 
 if __name__ == '__main__':
