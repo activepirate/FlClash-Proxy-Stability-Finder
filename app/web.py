@@ -527,10 +527,17 @@ def public_config() -> dict[str, Any]:
 
 def update_config(payload: dict[str, Any]) -> dict[str, Any]:
     values = load_config()
-    if payload.get('clear_secret'):
+    clear_secret = payload.get('clear_secret', False)
+    if not isinstance(clear_secret, bool):
+        raise ValueError('clear_secret 必须是布尔值')
+    if clear_secret:
         values['secret'] = ''
-    elif payload.get('secret'):
-        values['secret'] = str(payload['secret'])
+    elif 'secret' in payload:
+        secret = payload['secret']
+        if not isinstance(secret, str):
+            raise ValueError('密钥必须是字符串')
+        if secret:
+            values['secret'] = secret
 
     values.update({key: payload[key] for key in DEFAULTS if key in payload and key != 'secret'})
     values = normalize_config(values)
@@ -567,6 +574,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
         self.end_headers()
         self.wfile.write(body)
 
@@ -591,6 +600,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.send_header('Content-Length', str(len(body)))
                 self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Referrer-Policy', 'no-referrer')
                 self.end_headers()
                 self.wfile.write(body)
             elif path == '/api/config':
@@ -648,7 +659,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             path = urlsplit(self.path).path
             if path == '/api/config':
                 values = update_config(payload)
-                self._json(200, {'ok': True, 'config': {**values, 'secret': '', 'secret_configured': bool(values['secret'])}})
+                public = {**values, 'secret': '', 'secret_configured': bool(values['secret'])}
+                self._json(200, {'ok': True, 'config': public})
             elif path == '/api/run':
                 values = update_config(payload)
                 names = payload.get('proxies', [])

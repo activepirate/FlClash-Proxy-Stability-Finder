@@ -1,4 +1,4 @@
-"""Local settings for the recorder UI and command-line tool."""
+"""Local settings for the recorder UI."""
 
 from __future__ import annotations
 
@@ -34,36 +34,41 @@ def _number(value: Any, name: str, *, integer: bool = False, minimum: float = 0)
     if isinstance(value, bool):
         raise ValueError(f'{name}必须是数字')
     try:
-        converted = int(value) if integer else float(value)
-    except (TypeError, ValueError) as error:
+        converted = float(value)
+    except (OverflowError, TypeError, ValueError) as error:
         raise ValueError(f'{name}必须是数字') from error
-    if integer and isinstance(value, float) and not value.is_integer():
+    if integer and not converted.is_integer():
         raise ValueError(f'{name}必须是整数')
     if not math.isfinite(converted) or converted < minimum:
         suffix = '正数' if minimum > 0 else '非负数'
         raise ValueError(f'{name}须为{suffix}')
-    return converted
+    return int(converted) if integer else converted
 
 
-def normalize_service_url(url: Any) -> str:
-    value = str(url).strip()
+def normalize_http_url(value: Any, error_message: str) -> str:
+    """Normalize a network URL and reject malformed or credential-bearing URLs."""
+    text = str(value).strip()
     try:
-        parsed = urlsplit(value)
+        parsed = urlsplit(text)
         hostname = parsed.hostname
         _ = parsed.port
-    except ValueError as error:
-        raise ValueError('服务 URL 必须是有效的 http:// 或 https:// 地址') from error
+    except (AttributeError, ValueError) as error:
+        raise ValueError(error_message) from error
     if (
-        len(value) > 2048
-        or any(character.isspace() for character in value)
+        len(text) > 2048
+        or any(character.isspace() for character in text)
         or parsed.scheme not in {'http', 'https'}
         or not parsed.netloc
         or not hostname
         or parsed.username is not None
         or parsed.password is not None
     ):
-        raise ValueError('服务 URL 必须是有效的 http:// 或 https:// 地址')
-    return value
+        raise ValueError(error_message)
+    return text
+
+
+def normalize_service_url(url: Any) -> str:
+    return normalize_http_url(url, '服务 URL 必须是有效的 http:// 或 https:// 地址')
 
 
 def normalize_services(value: Any) -> list[dict[str, str]]:
@@ -92,23 +97,23 @@ def normalize_services(value: Any) -> list[dict[str, str]]:
 
 def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     """Return a typed, validated configuration suitable for persistence/use."""
+    if not isinstance(config, dict):
+        raise ValueError('配置内容必须是 JSON 对象')
     values = {key: config.get(key, default) for key, default in DEFAULTS.items()}
-    values['controller'] = str(values['controller']).strip()
-    controller = urlsplit(values['controller'])
-    if controller.scheme not in {'http', 'https'} or not controller.netloc:
-        raise ValueError('控制器地址必须以 http:// 或 https:// 开头')
+    values['controller'] = normalize_http_url(
+        values['controller'], '控制器地址必须以 http:// 或 https:// 开头'
+    )
 
-    values['secret'] = str(values['secret'])
+    values['secret'] = '' if values['secret'] is None else str(values['secret'])
     values['rounds'] = _number(values['rounds'], '轮数', integer=True, minimum=1)
     values['interval'] = _number(values['interval'], '间隔', minimum=0)
     values['concurrency'] = _number(values['concurrency'], '并发数', integer=True, minimum=1)
     values['timeout_ms'] = _number(values['timeout_ms'], '单次超时', integer=True, minimum=1)
     values['request_timeout'] = _number(values['request_timeout'], 'HTTP 请求超时', minimum=0.000001)
 
-    values['test_url'] = str(values['test_url']).strip()
-    test_url = urlsplit(values['test_url'])
-    if test_url.scheme not in {'http', 'https'} or not test_url.netloc:
-        raise ValueError('测试 URL 必须是有效的 http:// 或 https:// 地址')
+    values['test_url'] = normalize_http_url(
+        values['test_url'], '测试 URL 必须是有效的 http:// 或 https:// 地址'
+    )
     values['services'] = normalize_services(values['services'])
     return values
 

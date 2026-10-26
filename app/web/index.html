@@ -221,8 +221,8 @@
     @media (max-width: 900px) {
       main { padding: 16px; }
       .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dashboard-columns { grid-template-columns: minmax(0, 1fr); }
     }
-    @media (max-width: 900px) { .dashboard-columns { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 1100px) {
       #connection-table-wrap th:nth-child(2), #connection-table-wrap td:nth-child(2),
       #connection-table-wrap th:nth-child(3), #connection-table-wrap td:nth-child(3),
@@ -520,7 +520,9 @@
         ...options,
         headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch (_error) { data = {}; }
       if (!response.ok) throw new Error(data.error || `请求失败 (${response.status})`);
       return data;
     }
@@ -632,7 +634,7 @@
       renderActiveSorts();
       body.replaceChildren();
       if (!proxies.length) {
-        body.innerHTML = '<tr><td colspan="6" class="empty">没有可测试的代理，请检查控制器连接或策略组设置</td></tr>';
+        renderTableMessage(body, '没有可测试的代理，请检查控制器连接或策略组设置');
         return;
       }
       const stats = new Map(rows.map((row) => [row.proxy, row]));
@@ -661,7 +663,7 @@
         ? orderedProxies.filter(({ proxy }) => proxy.name.toLocaleLowerCase().includes(query))
         : orderedProxies;
       if (!visibleProxies.length) {
-        body.innerHTML = '<tr><td colspan="6" class="empty">没有找到匹配的代理</td></tr>';
+        renderTableMessage(body, '没有找到匹配的代理');
         return;
       }
       visibleProxies.forEach(({ proxy }) => {
@@ -680,6 +682,16 @@
         cells.forEach((value) => { const td = document.createElement('td'); td.className = 'number'; td.textContent = value; tr.append(td); });
         body.append(tr);
       });
+    }
+
+    function renderTableMessage(body, message) {
+      const row = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 6;
+      cell.className = 'empty';
+      cell.textContent = message;
+      row.append(cell);
+      body.append(row);
     }
 
     function formatBytes(value) {

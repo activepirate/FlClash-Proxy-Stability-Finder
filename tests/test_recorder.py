@@ -48,6 +48,12 @@ class RecorderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Controller('http://127.0.0.1:9090', '', 0)
 
+    def test_controller_rejects_malformed_url(self):
+        for url in ('http://:9090', 'http://user:pass@example.com:99999'):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    Controller(url, '', 2)
+
     def test_controller_reads_proxies_and_tests_escaped_name(self):
         requests = []
 

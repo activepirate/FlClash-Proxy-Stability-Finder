@@ -52,6 +52,20 @@ class ConfigTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     normalize_config({'services': [{'name': 'invalid', 'url': url}]})
 
+    def test_normalize_config_rejects_malformed_controller_and_test_urls(self):
+        for field, value in (
+            ('controller', 'http://:9090'),
+            ('controller', 'http://user:pass@example.com:99999'),
+            ('test_url', 'https://example.com:99999/health'),
+            ('test_url', 'https://user@example.com/health'),
+        ):
+            with self.subTest(field=field, value=value):
+                with self.assertRaises(ValueError):
+                    normalize_config({field: value})
+
+    def test_normalize_config_treats_null_secret_as_empty(self):
+        self.assertEqual(normalize_config({'secret': None})['secret'], '')
+
 
 if __name__ == '__main__':
     unittest.main()

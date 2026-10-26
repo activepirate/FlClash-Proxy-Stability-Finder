@@ -402,7 +402,7 @@ class WebTests(unittest.TestCase):
         self.assertNotIn('id="proxy-sort"', page)
         self.assertIn('grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr)', page)
         self.assertIn('<div class="connection-column">', page)
-        self.assertIn('@media (max-width: 900px) { .dashboard-columns { grid-template-columns: minmax(0, 1fr); } }', page)
+        self.assertIn('.dashboard-columns { grid-template-columns: minmax(0, 1fr); }', page)
         connection_column = page[page.index('<div class="connection-column">'):page.index('</div>\n      </div>', page.index('<div class="connection-column">'))]
         self.assertLess(connection_column.index('<h2>控制器实时状态</h2>'), connection_column.index('<h2>代理与直连流量</h2>'))
         self.assertLess(connection_column.index('<h2>代理与直连流量</h2>'), connection_column.index('<h2>活动连接</h2>'))
@@ -430,6 +430,11 @@ class WebTests(unittest.TestCase):
         self.assertTrue(payload['secret_configured'])
         self.assertEqual(payload['secret'], '')
         self.assertNotIn('private-key', json.dumps(payload))
+
+    def test_update_config_rejects_non_boolean_secret_reset(self):
+        with patch.object(web, 'load_config', return_value={'secret': 'private-key'}):
+            with self.assertRaises(ValueError):
+                web.update_config({'clear_secret': 'false'})
 
     def test_exit_ip_api_returns_probe_result(self):
         with patch.object(

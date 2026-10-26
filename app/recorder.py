@@ -14,6 +14,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
+from app.config import normalize_http_url
+
 
 GROUP_TYPES = {'selector', 'urltest', 'loadbalance', 'relay'}
 BUILT_IN_PROXIES = {'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE'}
@@ -21,14 +23,19 @@ BUILT_IN_PROXIES = {'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE'}
 
 class Controller:
     def __init__(self, base_url: str, secret: str, timeout: float) -> None:
-        parts = urlsplit(base_url)
-        if parts.scheme not in {'http', 'https'} or not parts.netloc:
-            raise ValueError('Controller URL must start with http:// or https://')
-        if timeout <= 0 or not math.isfinite(timeout):
+        normalized_url = normalize_http_url(
+            base_url, 'Controller URL must start with http:// or https://'
+        )
+        try:
+            timeout_value = float(timeout)
+        except (TypeError, ValueError) as error:
+            raise ValueError('Controller timeout must be greater than zero') from error
+        if timeout_value <= 0 or not math.isfinite(timeout_value):
             raise ValueError('Controller timeout must be greater than zero')
+        parts = urlsplit(normalized_url)
         self.base_url = urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip('/'), '', ''))
         self.secret = secret
-        self.timeout = timeout
+        self.timeout = timeout_value
 
     def _request(self, url: str) -> Request:
         headers = {'Accept': 'application/json'}
@@ -121,8 +128,11 @@ def select_proxies(
 ) -> list[tuple[str, str]]:
     selected = []
     for name, details in proxies.items():
+        if not isinstance(details, dict):
+            continue
+        name = str(name)
         kind = str(details.get('type', 'unknown'))
-        if name.upper() in BUILT_IN_PROXIES:
+        if name.strip().upper() in BUILT_IN_PROXIES:
             continue
         if kind.casefold() in GROUP_TYPES:
             continue
