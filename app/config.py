@@ -1,4 +1,4 @@
-"""Local settings for the recorder UI."""
+"""Local settings for the network observatory UI."""
 
 from __future__ import annotations
 
@@ -68,27 +68,27 @@ def normalize_http_url(value: Any, error_message: str) -> str:
 
 
 def normalize_service_url(url: Any) -> str:
-    return normalize_http_url(url, '服务 URL 必须是有效的 http:// 或 https:// 地址')
+    return normalize_http_url(url, '目标 URL 必须是有效的 http:// 或 https:// 地址')
 
 
 def normalize_services(value: Any) -> list[dict[str, str]]:
     if not isinstance(value, list) or not value or len(value) > 50:
-        raise ValueError('服务检测列表必须包含 1 到 50 项')
+        raise ValueError('可达性探测目标必须包含 1 到 50 项')
     services = []
     seen_names = set()
     seen_urls = set()
     for item in value:
         if not isinstance(item, dict):
-            raise ValueError('服务检测项格式错误')
+            raise ValueError('可达性探测目标格式错误')
         name = str(item.get('name', '')).strip()
         if not name or len(name) > 80:
-            raise ValueError('服务名称不能为空且不能超过 80 个字符')
+            raise ValueError('目标名称不能为空且不能超过 80 个字符')
         url = normalize_service_url(item.get('url', ''))
         name_key = name.casefold()
         if name_key in seen_names:
-            raise ValueError(f'服务名称重复：{name}')
+            raise ValueError(f'目标名称重复：{name}')
         if url in seen_urls:
-            raise ValueError(f'服务 URL 重复：{url}')
+            raise ValueError(f'目标 URL 重复：{url}')
         seen_names.add(name_key)
         seen_urls.add(url)
         services.append({'name': name, 'url': url})
@@ -105,14 +105,14 @@ def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     )
 
     values['secret'] = '' if values['secret'] is None else str(values['secret'])
-    values['rounds'] = _number(values['rounds'], '轮数', integer=True, minimum=1)
-    values['interval'] = _number(values['interval'], '间隔', minimum=0)
-    values['concurrency'] = _number(values['concurrency'], '并发数', integer=True, minimum=1)
-    values['timeout_ms'] = _number(values['timeout_ms'], '单次超时', integer=True, minimum=1)
-    values['request_timeout'] = _number(values['request_timeout'], 'HTTP 请求超时', minimum=0.000001)
+    values['rounds'] = _number(values['rounds'], '采样轮数', integer=True, minimum=1)
+    values['interval'] = _number(values['interval'], '采样间隔', minimum=0)
+    values['concurrency'] = _number(values['concurrency'], '并发探测数', integer=True, minimum=1)
+    values['timeout_ms'] = _number(values['timeout_ms'], '单次探测超时', integer=True, minimum=1)
+    values['request_timeout'] = _number(values['request_timeout'], '控制器请求超时', minimum=0.000001)
 
     values['test_url'] = normalize_http_url(
-        values['test_url'], '测试 URL 必须是有效的 http:// 或 https:// 地址'
+        values['test_url'], '延迟探测 URL 必须是有效的 http:// 或 https:// 地址'
     )
     values['services'] = normalize_services(values['services'])
     return values

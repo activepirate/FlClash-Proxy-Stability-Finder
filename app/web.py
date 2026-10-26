@@ -72,7 +72,7 @@ def _read_exit_ip_payload(opener: Any, url: str, timeout: float) -> Any:
         url,
         headers={
             'Accept': 'application/json',
-            'User-Agent': 'FlClashRecorder/1.0',
+            'User-Agent': 'FlClashNetworkObserver/1.0',
         },
     )
     try:
@@ -151,13 +151,13 @@ def check_service(name: str, timeout: float) -> dict[str, Any]:
     """Check reachability with the host's normal URL opener configuration."""
     target = SERVICE_TARGETS.get(name)
     if target is None:
-        raise ValueError('不支持的服务')
+        raise ValueError('不支持的探测目标')
     label, url = target
     return _check_service_url(url, timeout, name=name, label=label)
 
 
 def _check_service_url(url: str, timeout: float, *, name: str, label: str) -> dict[str, Any]:
-    request = Request(url, headers={'User-Agent': 'FlClashRecorder/1.0'})
+    request = Request(url, headers={'User-Agent': 'FlClashNetworkObserver/1.0'})
     started = time.monotonic()
     status_code = None
     error = None
@@ -199,14 +199,14 @@ def check_services(
             name = str(item.get('name', '')).strip()
             url = normalize_service_url(item.get('url', ''))
             if not name:
-                raise ValueError('服务检测项格式错误')
+                raise ValueError('可达性探测目标格式错误')
             targets.append((name, url, name))
     else:
         if not all(isinstance(name, str) for name in selected):
-            raise ValueError('服务检测列表格式错误')
+            raise ValueError('可达性探测目标列表格式错误')
         unknown = [name for name in selected if name not in SERVICE_TARGETS]
         if unknown:
-            raise ValueError(f'不支持的服务: {", ".join(unknown)}')
+            raise ValueError(f'不支持的探测目标: {", ".join(unknown)}')
         targets = [(name, SERVICE_TARGETS[name][1], SERVICE_TARGETS[name][0]) for name in selected]
     for url in urls or []:
         normalized_url = normalize_service_url(url)
@@ -433,7 +433,7 @@ class RecorderService:
     def start(self, values: dict[str, Any], names: list[str]) -> None:
         with self.lock:
             if self.running:
-                raise RuntimeError('已有采集任务正在运行')
+                raise RuntimeError('已有延迟采样任务正在运行')
 
         controller = Controller(
             str(values['controller']),
@@ -445,14 +445,14 @@ class RecorderService:
         requested = set(names)
         selected = [item for item in selected if item[0] in requested]
         if not selected:
-            raise ValueError('请先刷新并选择至少一个可测试代理')
+            raise ValueError('请先刷新并选择至少一个可探测代理节点')
 
         with self.lock:
             if self.running:
-                raise RuntimeError('已有采集任务正在运行')
+                raise RuntimeError('已有延迟采样任务正在运行')
             self.running = True
             self.stopping = False
-            self.status = f'准备采集 {len(selected)} 个代理'
+            self.status = f'准备采样 {len(selected)} 个代理节点'
             self.samples = {name: [] for name, _ in selected}
             self.proxy_types = dict(selected)
             self.logs = []
@@ -473,7 +473,7 @@ class RecorderService:
         stop_event: threading.Event,
     ) -> None:
         with self.lock:
-            self.status = '正在采集'
+            self.status = '正在采样'
 
         def record_sample(sample: dict[str, Any]) -> None:
             value = f"{sample['delay_ms']} ms" if sample['success'] else f"失败：{sample['error']}"
@@ -497,10 +497,10 @@ class RecorderService:
                 stop_event=stop_event,
             )
             with self.lock:
-                self.status = '已停止' if stopped else '采集完成'
+                self.status = '已停止' if stopped else '采样完成'
         except (RuntimeError, ValueError, OSError) as error:
             with self.lock:
-                self.status = f'采集失败：{error}'
+                self.status = f'采样失败：{error}'
                 self._append_log_locked(f'错误：{error}')
         finally:
             with self.lock:
@@ -546,7 +546,7 @@ def update_config(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 class RequestHandler(BaseHTTPRequestHandler):
-    server_version = 'FlClashRecorder/1.0'
+    server_version = 'FlClashNetworkObserver/1.0'
     service: RecorderService
 
     def log_message(self, _format: str, *_args: Any) -> None:
@@ -678,7 +678,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='启动本机代理延迟记录 Web 界面')
+    parser = argparse.ArgumentParser(description='启动 FlClash 代理稳定性筛选器')
     parser.add_argument('--host', default='127.0.0.1', help='只能使用本机回环地址')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--no-browser', action='store_true', help='不自动打开浏览器')
@@ -696,7 +696,7 @@ def main() -> None:
     server = Server((args.host, args.port), handler)
     host = '127.0.0.1' if args.host == 'localhost' else args.host
     address = f'http://{host}:{args.port}/'
-    print(f'FlClash 代理延迟记录器已启动：{address}')
+    print(f'FlClash 代理稳定性筛选器已启动：{address}')
     print('按 Ctrl+C 停止服务。')
     if not args.no_browser:
         threading.Timer(0.4, webbrowser.open, args=(address,)).start()

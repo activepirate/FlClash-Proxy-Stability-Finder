@@ -323,9 +323,9 @@ class WebTests(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertIn('text/html', response.getheader('Content-Type'))
         page = response.read().decode()
-        self.assertIn('FlClash 代理延迟记录器', page)
+        self.assertIn('FlClash 代理稳定性筛选器', page)
         self.assertNotIn('<div class="top-status">', page)
-        for endpoint in ('控制器实时状态', '活动连接', '控制器日志', '/traffic', '/logs', '/connections'):
+        for endpoint in ('控制器遥测', '活动连接', '控制器运行日志', '/traffic', '/logs', '/connections'):
             self.assertIn(endpoint, page)
         for element_id in (
             'exit-ip-ipify-ip', 'exit-ip-ipify-country', 'exit-ip-ipify-city',
@@ -337,7 +337,7 @@ class WebTests(unittest.TestCase):
         ):
             self.assertIn(f'id="{element_id}"', page)
         self.assertNotIn('<span class="exit-ip-cell">服务</span>', page)
-        self.assertIn('<h2>出口 IP 检测</h2>', page)
+        self.assertIn('<h2>出口 IP 探测</h2>', page)
         self.assertIn('.exit-ip-table-wrap { min-width: 0; }', page)
         self.assertIn('.exit-ip-table { width: 100%; min-width: 0; }', page)
         self.assertNotIn('overflow-x: auto;', page[page.index('.exit-ip-panel'):page.index('.proxy-summary-inline')])
@@ -346,12 +346,12 @@ class WebTests(unittest.TestCase):
         self.assertNotIn('.exit-ip-row:not(.exit-ip-header)', page)
         self.assertIn('.exit-ip-row { display: grid;', page)
         self.assertIn('grid-template-columns: minmax(0, 1.2fr)', page)
-        self.assertIn('检测信息', page)
-        self.assertIn('<span class="exit-ip-cell">检测服务</span>', page)
-        self.assertNotIn('<h2>采集概览</h2>', page)
-        self.assertNotIn('aria-label="采集概览"', page)
-        self.assertIn('<h2>服务状态</h2>', page)
-        self.assertIn('普通网络请求</span>', page)
+        self.assertIn('探测信息', page)
+        self.assertIn('<span class="exit-ip-cell">探测服务</span>', page)
+        self.assertNotIn('<h2>延迟采样概览</h2>', page)
+        self.assertNotIn('aria-label="观测概览"', page)
+        self.assertIn('<h2>服务可达性</h2>', page)
+        self.assertIn('本机网络探测</span>', page)
         connection_header = '<thead><tr><th>网络</th><th>进程</th><th>开始时间</th><th>来源</th>'
         self.assertIn(connection_header, page)
         self.assertIn('formatChinaTime(connection.start)', page)
@@ -361,14 +361,14 @@ class WebTests(unittest.TestCase):
         self.assertIn("const CHINA_TIME_OFFSET = '+08:00'", page)
         self.assertIn('formatChinaTime(entry.time)', page)
         self.assertIn('? formatChinaTime(result.checked_at)', page)
-        self.assertNotIn('检测时间：中国时间 ${formatChinaTime(result.checked_at)}', page)
-        self.assertIn('服务名称</span><span>服务 URL</span><span>检测结果</span><span>检测时间</span><span>操作', page)
+        self.assertNotIn('探测时间：中国时间 ${formatChinaTime(result.checked_at)}', page)
+        self.assertIn('探测目标</span><span>探测 URL</span><span>探测结果</span><span>最近探测</span><span>操作', page)
         self.assertIn('id="service-status-list" role="list"', page)
         self.assertIn("card.setAttribute('role', 'listitem')", page)
         self.assertIn('id="proxy-search"', page)
         self.assertIn('placeholder="搜索代理名称"', page)
         self.assertIn("proxy.name.toLocaleLowerCase().includes(query)", page)
-        self.assertIn('没有找到匹配的代理', page)
+        self.assertIn('没有找到匹配的代理节点', page)
         self.assertIn('function replaceLogContents(body, children)', page)
         self.assertIn('const wasAtBottom = body.scrollHeight - body.clientHeight - scrollTop <= 2', page)
         self.assertIn('body.scrollTop = wasAtBottom ? body.scrollHeight : scrollTop', page)
@@ -385,11 +385,11 @@ class WebTests(unittest.TestCase):
         self.assertIn('id="service-name-error"', page)
         self.assertIn('id="service-url-error"', page)
         self.assertIn('data.services.forEach((result) => setServiceCard(result.url, result));', page)
-        self.assertIn('服务 URL 已存在', page)
+        self.assertIn('目标 URL 已存在', page)
         for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is'), ('ipwhois', 'ipwhois.app')):
             self.assertIn(f'data-provider="{provider}"', page)
             self.assertIn(f'>{label}</button>', page)
-        self.assertNotIn('>检测服务</button>', page)
+        self.assertNotIn('>探测服务</button>', page)
         self.assertNotIn('fallback', page)
         self.assertNotIn('await refreshExitIp()', page)
         for removed_control in ('id="select-all"', 'id="select-none"', 'id="select-toggle"', 'class="proxy-check'):
@@ -404,21 +404,21 @@ class WebTests(unittest.TestCase):
         self.assertIn('<div class="connection-column">', page)
         self.assertIn('.dashboard-columns { grid-template-columns: minmax(0, 1fr); }', page)
         connection_column = page[page.index('<div class="connection-column">'):page.index('</div>\n      </div>', page.index('<div class="connection-column">'))]
-        self.assertLess(connection_column.index('<h2>控制器实时状态</h2>'), connection_column.index('<h2>代理与直连流量</h2>'))
-        self.assertLess(connection_column.index('<h2>代理与直连流量</h2>'), connection_column.index('<h2>活动连接</h2>'))
-        self.assertLess(connection_column.index('<h2>活动连接</h2>'), connection_column.index('<h2>控制器日志</h2>'))
+        self.assertLess(connection_column.index('<h2>控制器遥测</h2>'), connection_column.index('<h2>代理/直连流量</h2>'))
+        self.assertLess(connection_column.index('<h2>代理/直连流量</h2>'), connection_column.index('<h2>活动连接</h2>'))
+        self.assertLess(connection_column.index('<h2>活动连接</h2>'), connection_column.index('<h2>控制器运行日志</h2>'))
         primary_column = page[page.index('<div class="primary-column">'):page.index('<div class="connection-column">')]
         self.assertNotIn('class="panel summary"', primary_column)
-        results_panel = primary_column[primary_column.index('<h2>代理测试结果</h2>'):primary_column.index('<section class="panel logs">')]
-        self.assertLess(results_panel.index('<h2>代理测试结果</h2>'), results_panel.index('aria-label="代理测试概览"'))
-        self.assertLess(results_panel.index('aria-label="代理测试概览"'), results_panel.index('proxy-results-actions'))
+        results_panel = primary_column[primary_column.index('<h2>代理延迟采样</h2>'):primary_column.index('<section class="panel logs">')]
+        self.assertLess(results_panel.index('<h2>代理延迟采样</h2>'), results_panel.index('aria-label="延迟采样概览"'))
+        self.assertLess(results_panel.index('aria-label="延迟采样概览"'), results_panel.index('proxy-results-actions'))
         self.assertLess(results_panel.index('proxy-results-actions'), results_panel.index('id="active-sorts"'))
         results_panel_markup = primary_column[primary_column.index('class="section-head proxy-results-head"'):primary_column.index('<div class="table-wrap">')]
-        self.assertLess(results_panel_markup.index('<h2>代理测试结果</h2>'), results_panel_markup.index('aria-label="代理测试概览"'))
-        self.assertLess(results_panel_markup.index('aria-label="代理测试概览"'), results_panel_markup.index('proxy-results-actions'))
+        self.assertLess(results_panel_markup.index('<h2>代理延迟采样</h2>'), results_panel_markup.index('aria-label="延迟采样概览"'))
+        self.assertLess(results_panel_markup.index('aria-label="延迟采样概览"'), results_panel_markup.index('proxy-results-actions'))
         self.assertLess(results_panel_markup.index('id="stop"'), results_panel_markup.index('id="open-settings"'))
         self.assertIn('.proxy-results-actions { justify-content: flex-end;', page)
-        for label in ('GET /proxies/{name}/delay', 'GET /connections', 'GET /traffic', 'GET /logs?level=info&amp;format=structured', '本地'):
+        for label in ('GET /proxies/{name}/delay', 'GET /connections', 'GET /traffic', 'GET /logs?level=info&amp;format=structured', '本地运行日志'):
             self.assertIn(label, page)
         self.assertNotIn('/configs', page)
 

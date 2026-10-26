@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>FlClash 代理延迟记录器</title>
+  <title>FlClash 代理稳定性筛选器</title>
   <style>
     :root {
       color-scheme: light;
@@ -272,14 +272,14 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">F</span><span>FlClash 代理延迟记录器</span></div>
+    <div class="brand"><span class="brand-mark">F</span><span>FlClash 代理稳定性筛选器</span></div>
   </header>
   <main>
     <div class="layout">
-      <div class="dashboard-columns" aria-label="采集结果">
+      <div class="dashboard-columns" aria-label="代理网络观测">
         <div class="primary-column">
           <div class="panel exit-ip-panel" aria-label="出口 IP">
-            <div class="module-head"><h2>出口 IP 检测</h2></div>
+            <div class="module-head"><h2>出口 IP 探测</h2></div>
             <div class="exit-ip-table-wrap">
               <div class="exit-ip-table">
                 <div class="exit-ip-row exit-ip-header" role="row">
@@ -288,8 +288,8 @@
                   <span class="exit-ip-cell">城市</span>
                   <span class="exit-ip-cell">时区</span>
                   <span class="exit-ip-cell">UTC 偏移</span>
-                  <span class="exit-ip-cell">检测信息</span>
-                  <span class="exit-ip-cell">检测服务</span>
+                  <span class="exit-ip-cell">探测信息</span>
+                  <span class="exit-ip-cell">探测服务</span>
                 </div>
                 <div class="exit-ip-row" data-provider-row="ipify" role="row">
                   <strong class="exit-ip-cell exit-ip-value" id="exit-ip-ipify-ip">—</strong>
@@ -329,36 +329,36 @@
                 </div>
               </div>
             </div>
-            <div class="exit-ip-status" id="exit-ip-status">请选择检测服务</div>
+            <div class="exit-ip-status" id="exit-ip-status">请选择一个 IP 探测服务</div>
           </div>
-          <section class="panel" aria-label="服务状态">
+          <section class="panel" aria-label="服务可达性">
             <div class="section-head service-status-head">
-              <div class="section-title"><h2>服务状态</h2><span class="endpoint">普通网络请求</span></div>
+              <div class="section-title"><h2>服务可达性</h2><span class="endpoint">本机网络探测</span></div>
               <div class="service-status-actions">
-                <button class="button" id="open-service-add" type="button">添加服务</button>
-                <button class="button primary" id="service-check-all" type="button">检测全部</button>
+                <button class="button" id="open-service-add" type="button">添加探测目标</button>
+                <button class="button primary" id="service-check-all" type="button">探测全部</button>
               </div>
             </div>
-            <div class="service-status-list-header" aria-hidden="true"><span>服务名称</span><span>服务 URL</span><span>检测结果</span><span>检测时间</span><span>操作</span></div>
+            <div class="service-status-list-header" aria-hidden="true"><span>探测目标</span><span>探测 URL</span><span>探测结果</span><span>最近探测</span><span>操作</span></div>
             <div class="service-status-list" id="service-status-list" role="list"></div>
           </section>
 
           <section class="panel">
             <div class="section-head proxy-results-head">
-              <div class="section-title"><h2>代理测试结果</h2><span class="endpoint">GET /proxies · GET /proxies/{name}/delay</span></div>
+              <div class="section-title"><h2>代理延迟采样</h2><span class="endpoint">GET /proxies · GET /proxies/{name}/delay</span></div>
             </div>
-            <div class="proxy-summary-inline" aria-label="代理测试概览">
-              <div class="metric"><span class="metric-label">代理数</span><strong class="metric-value" id="metric-proxies">0</strong></div>
-              <div class="metric"><span class="metric-label">已完成样本</span><strong class="metric-value" id="metric-samples">0</strong></div>
-              <div class="metric"><span class="metric-label">整体成功率</span><strong class="metric-value" id="metric-rate">—</strong></div>
-              <div class="metric"><span class="metric-label">当前状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
+            <div class="proxy-summary-inline" aria-label="延迟采样概览">
+              <div class="metric"><span class="metric-label">代理节点</span><strong class="metric-value" id="metric-proxies">0</strong></div>
+              <div class="metric"><span class="metric-label">已完成探测</span><strong class="metric-value" id="metric-samples">0</strong></div>
+              <div class="metric"><span class="metric-label">总体成功率</span><strong class="metric-value" id="metric-rate">—</strong></div>
+              <div class="metric"><span class="metric-label">采样状态</span><strong class="metric-value" id="metric-status">就绪</strong></div>
             </div>
             <div class="section-actions proxy-results-actions">
               <label class="proxy-search"><input id="proxy-search" type="search" aria-label="按代理名称搜索" placeholder="搜索代理名称"></label>
-              <button id="refresh" class="button" type="button">刷新代理</button>
-              <button id="run" class="button primary" type="button">开始采集</button>
-              <button id="stop" class="button danger" type="button" disabled>停止</button>
-              <button id="open-settings" class="button" type="button">设置</button>
+              <button id="refresh" class="button" type="button">刷新代理列表</button>
+              <button id="run" class="button primary" type="button">开始采样</button>
+              <button id="stop" class="button danger" type="button" disabled>停止采样</button>
+              <button id="open-settings" class="button" type="button">连接与采样设置</button>
             </div>
             <div id="active-sorts" class="active-sorts empty" aria-label="当前排序" aria-live="polite"></div>
             <div class="table-wrap">
@@ -375,14 +375,14 @@
           </section>
 
           <section class="panel logs">
-            <div class="section-head"><div class="section-title"><h2>采集记录</h2><span class="endpoint">本地</span></div><div class="section-actions"><label class="proxy-type" for="collection-log-limit">每屏</label><select id="collection-log-limit" class="row-limit" aria-label="采集记录每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
-            <div id="log-body" class="log-body" aria-live="polite"><div class="log-line">等待连接本机服务…</div></div>
+            <div class="section-head"><div class="section-title"><h2>采样日志</h2><span class="endpoint">本地运行日志</span></div><div class="section-actions"><label class="proxy-type" for="collection-log-limit">每屏</label><select id="collection-log-limit" class="row-limit" aria-label="采样日志每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
+            <div id="log-body" class="log-body" aria-live="polite"><div class="log-line">等待本机观测服务…</div></div>
           </section>
         </div>
 
         <div class="connection-column">
           <section class="panel">
-            <div class="section-head"><div class="section-title"><h2>控制器实时状态</h2><span class="endpoint">GET /traffic · GET /connections</span></div><span id="monitor-status" class="proxy-type">等待控制器数据</span></div>
+            <div class="section-head"><div class="section-title"><h2>控制器遥测</h2><span class="endpoint">GET /traffic · GET /connections</span></div><span id="monitor-status" class="proxy-type">等待控制器连接</span></div>
             <div class="telemetry-metrics">
               <div class="metric"><span class="metric-label">上传速率</span><strong class="metric-value" id="traffic-up">—</strong></div>
               <div class="metric"><span class="metric-label">下载速率</span><strong class="metric-value" id="traffic-down">—</strong></div>
@@ -393,7 +393,7 @@
           </section>
 
           <section class="panel">
-            <div class="section-head"><div class="section-title"><h2>代理与直连流量</h2><span class="endpoint">按活动连接代理链统计 · 累计从本次监控开始</span></div></div>
+            <div class="section-head"><div class="section-title"><h2>代理/直连流量</h2><span class="endpoint">按活动连接链路分类 · 累计从本次观测开始</span></div></div>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>类型</th><th class="number">上传速度</th><th class="number">下载速度</th><th class="number">累计上传</th><th class="number">累计下载</th></tr></thead>
@@ -403,20 +403,20 @@
                 </tbody>
               </table>
             </div>
-            <div class="traffic-note">按活动连接计数差分换算速度；轮询间已结束的连接、监控开始前流量及无法识别的链路不计入分类累计。</div>
+            <div class="traffic-note">按活动连接的累计字节差分换算速率；已结束连接、观测开始前流量及无法识别链路不计入分类累计。</div>
           </section>
           <section class="panel">
             <div class="section-head"><div class="section-title"><h2>活动连接</h2><span class="endpoint">GET /connections</span></div><div class="section-actions"><span id="connection-count" class="proxy-type">0 条连接</span><label class="proxy-type" for="connection-limit">每屏</label><select id="connection-limit" class="row-limit" aria-label="活动连接每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
             <div id="connection-table-wrap" class="table-wrap">
               <table>
                 <thead><tr><th>网络</th><th>进程</th><th>开始时间</th><th>来源</th><th>目标</th><th>代理链</th><th class="number">上传</th><th class="number">下载</th></tr></thead>
-                <tbody id="connection-rows"><tr><td colspan="8" class="empty">等待控制器数据</td></tr></tbody>
+              <tbody id="connection-rows"><tr><td colspan="8" class="empty">等待控制器连接</td></tr></tbody>
               </table>
             </div>
           </section>
           <section class="panel logs">
-            <div class="section-head"><div class="section-title"><h2>控制器日志</h2><span class="endpoint">GET /logs?level=info&amp;format=structured</span></div><div class="section-actions"><span id="controller-log-count" class="proxy-type">0 条</span><label class="proxy-type" for="controller-log-limit">每屏</label><select id="controller-log-limit" class="row-limit" aria-label="控制器日志每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
-            <div id="controller-log-body" class="log-body" aria-live="polite"><div class="log-line">等待控制器数据…</div></div>
+            <div class="section-head"><div class="section-title"><h2>控制器运行日志</h2><span class="endpoint">GET /logs?level=info&amp;format=structured</span></div><div class="section-actions"><span id="controller-log-count" class="proxy-type">0 条</span><label class="proxy-type" for="controller-log-limit">每屏</label><select id="controller-log-limit" class="row-limit" aria-label="控制器运行日志每屏显示行数"><option value="5">5 行</option><option value="10" selected>10 行</option><option value="20">20 行</option><option value="50">50 行</option><option value="100">100 行</option></select></div></div>
+            <div id="controller-log-body" class="log-body" aria-live="polite"><div class="log-line">等待控制器运行日志…</div></div>
           </section>
         </div>
       </div>
@@ -425,41 +425,41 @@
 
   <dialog id="service-add-dialog" aria-labelledby="service-add-title">
     <div class="dialog-head">
-      <div><h1 id="service-add-title">添加服务</h1><p class="subhead">添加一个要检测的 HTTP 服务地址</p></div>
+      <div><h1 id="service-add-title">添加探测目标</h1><p class="subhead">添加一个用于可达性探测的 HTTP 地址</p></div>
       <button id="close-service-add" class="button" type="button">关闭</button>
     </div>
     <form id="service-add-form" novalidate>
       <div class="dialog-body">
-        <label class="field"><span>服务名称</span><input id="service-name" maxlength="80" placeholder="例如：公司内网" aria-describedby="service-name-error" aria-invalid="false" required><small class="field-error" id="service-name-error" role="alert"></small></label>
-        <label class="field"><span>服务 URL</span><input id="service-url" type="text" inputmode="url" maxlength="2048" placeholder="https://example.com/health" aria-describedby="service-url-error" aria-invalid="false" required><small class="field-error" id="service-url-error" role="alert"></small></label>
+        <label class="field"><span>目标名称</span><input id="service-name" maxlength="80" placeholder="例如：公司内网健康检查" aria-describedby="service-name-error" aria-invalid="false" required><small class="field-error" id="service-name-error" role="alert"></small></label>
+        <label class="field"><span>目标 URL</span><input id="service-url" type="text" inputmode="url" maxlength="2048" placeholder="https://example.com/health" aria-describedby="service-url-error" aria-invalid="false" required><small class="field-error" id="service-url-error" role="alert"></small></label>
       </div>
       <div class="dialog-actions">
         <button id="cancel-service-add" class="button" type="button">取消</button>
-        <button id="submit-service-add" class="button primary" type="submit">添加服务</button>
+        <button id="submit-service-add" class="button primary" type="submit">添加目标</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="settings-dialog" aria-labelledby="settings-title">
     <div class="dialog-head">
-      <div><h1 id="settings-title">采集设置</h1><p class="subhead">连接本机外部控制器</p></div>
+      <div><h1 id="settings-title">连接与采样设置</h1><p class="subhead">连接 FlClash 外部控制器并配置延迟探测</p></div>
       <button id="close-settings" class="button" type="button" aria-label="关闭设置">关闭</button>
     </div>
     <div class="dialog-body">
         <label class="field"><span>控制器地址</span><input id="controller" autocomplete="url" value="http://127.0.0.1:9090"></label>
         <label class="field"><span>控制器密钥</span><input id="secret" type="password" autocomplete="new-password" placeholder="未设置"></label>
-        <label class="field"><span>测试 URL</span><input id="test-url" value="https://www.gstatic.com/generate_204"></label>
+        <label class="field"><span>延迟探测 URL</span><input id="test-url" value="https://www.gstatic.com/generate_204"></label>
         <div class="field-grid">
-          <label class="field"><span>采集轮数</span><input id="rounds" type="number" min="1" step="1" value="5"></label>
-          <label class="field"><span>轮次间隔（秒）</span><input id="interval" type="number" min="0" step="1" value="5"></label>
-          <label class="field"><span>同时测试数</span><input id="concurrency" type="number" min="1" step="1" value="20"></label>
-          <label class="field"><span>单次超时（毫秒）</span><input id="timeout-ms" type="number" min="1" step="100" value="5000"></label>
-          <label class="field"><span>HTTP 请求超时（秒）</span><input id="request-timeout" type="number" min="1" step="1" value="10"></label>
+          <label class="field"><span>采样轮数</span><input id="rounds" type="number" min="1" step="1" value="5"></label>
+          <label class="field"><span>采样间隔（秒）</span><input id="interval" type="number" min="0" step="1" value="5"></label>
+          <label class="field"><span>并发探测数</span><input id="concurrency" type="number" min="1" step="1" value="20"></label>
+          <label class="field"><span>单次探测超时（毫秒）</span><input id="timeout-ms" type="number" min="1" step="100" value="5000"></label>
+          <label class="field"><span>控制器请求超时（秒）</span><input id="request-timeout" type="number" min="1" step="1" value="10"></label>
         </div>
-        <p class="help" id="secret-note">每轮最多同时测试指定数量的代理；密钥保存在本机配置文件，服务仅监听本机回环地址。</p>
+        <p class="help" id="secret-note">每轮并发探测指定数量的代理；密钥保存在本机配置文件，服务仅监听本机回环地址。</p>
     </div>
     <div class="dialog-actions">
-      <button id="save" class="button primary" type="button">保存配置</button>
+      <button id="save" class="button primary" type="button">保存连接设置</button>
     </div>
   </dialog>
   <div id="toast" class="toast" role="status"></div>
@@ -634,7 +634,7 @@
       renderActiveSorts();
       body.replaceChildren();
       if (!proxies.length) {
-        renderTableMessage(body, '没有可测试的代理，请检查控制器连接或策略组设置');
+        renderTableMessage(body, '暂无可探测代理，请检查控制器连接或策略组设置');
         return;
       }
       const stats = new Map(rows.map((row) => [row.proxy, row]));
@@ -663,7 +663,7 @@
         ? orderedProxies.filter(({ proxy }) => proxy.name.toLocaleLowerCase().includes(query))
         : orderedProxies;
       if (!visibleProxies.length) {
-        renderTableMessage(body, '没有找到匹配的代理');
+        renderTableMessage(body, '没有找到匹配的代理节点');
         return;
       }
       visibleProxies.forEach(({ proxy }) => {
@@ -789,7 +789,7 @@
       const logs = Array.isArray(entries) ? entries : [];
       $('controller-log-count').textContent = `${logs.length} 条`;
       if (!logs.length) {
-        const empty = document.createElement('div'); empty.className = 'log-line'; empty.textContent = '等待控制器日志…';
+        const empty = document.createElement('div'); empty.className = 'log-line'; empty.textContent = '等待控制器运行日志…';
         replaceLogContents(body, [empty]);
         return;
       }
@@ -855,8 +855,8 @@
       const row = document.querySelector(`[data-provider-row="${provider}"]`);
       const button = row.querySelector('.exit-ip-provider');
       const status = $('exit-ip-status');
-      setExitIpRow(provider, Object.fromEntries(exitIpFields.map((field) => [field, '检测中…'])));
-      status.textContent = `直接访问 ${exitIpProviderLabels[provider] || provider}`;
+      setExitIpRow(provider, Object.fromEntries(exitIpFields.map((field) => [field, '探测中…'])));
+      status.textContent = `通过本机网络探测 ${exitIpProviderLabels[provider] || provider}`;
       button.disabled = true;
       try {
         const data = await api(`/api/exit-ip?provider=${encodeURIComponent(provider)}`);
@@ -866,7 +866,7 @@
           status.textContent = `IPv${data.version} · ${checkedAt}`;
         } else {
           setExitIpRow(provider, {});
-          status.textContent = data.error || '检测失败';
+          status.textContent = data.error || '探测失败';
           if (showError) notify(status.textContent, true);
         }
       } catch (error) {
@@ -886,7 +886,7 @@
         card.dataset.serviceUrl = service.url;
         card.dataset.status = 'idle';
         card.setAttribute('role', 'listitem');
-        card.innerHTML = `<div class="service-status-name"></div><div class="service-status-detail service-status-url"></div><div class="service-status-detail service-status-result">尚未检测</div><div class="service-status-detail" data-field="meta">—</div><div class="service-status-actions"><button class="button service-check-one" type="button">检测</button><button class="button service-remove" type="button">删除</button></div>`;
+        card.innerHTML = `<div class="service-status-name"></div><div class="service-status-detail service-status-url"></div><div class="service-status-detail service-status-result">未探测</div><div class="service-status-detail" data-field="meta">—</div><div class="service-status-actions"><button class="button service-check-one" type="button">探测</button><button class="button service-remove" type="button">删除</button></div>`;
         card.querySelector('.service-status-name').textContent = service.name;
         card.querySelector('.service-status-url').textContent = service.url;
         card.querySelector('.service-check-one').addEventListener('click', () => checkServices([service.url]));
@@ -898,7 +898,7 @@
     function setServiceCard(url, result) {
       const card = [...document.querySelectorAll('[data-service-url]')].find((item) => item.dataset.serviceUrl === url);
       if (!card) return;
-      const statusText = { available: '可访问', timeout: '超时', failed: '连接失败' };
+      const statusText = { available: '可达', timeout: '超时', failed: '请求失败' };
       card.dataset.status = result.status;
       card.querySelector('.service-status-result').textContent = result.status_code
         ? `${statusText[result.status] || result.status} · HTTP ${result.status_code} · ${result.delay_ms} ms`
@@ -917,7 +917,7 @@
       buttons.forEach((button) => {
         const card = button.closest('[data-service-url]');
         card.dataset.status = 'checking';
-        card.querySelector('.service-status-result').textContent = '检测中…';
+        card.querySelector('.service-status-result').textContent = '探测中…';
       });
       $('service-check-all').disabled = true;
       try {
@@ -939,7 +939,7 @@
     async function removeService(url) {
       serviceDefinitions = serviceDefinitions.filter((service) => service.url !== url);
       if (!serviceDefinitions.length) {
-        notify('至少保留一个服务检测项', true);
+        notify('至少保留一个可达性探测目标', true);
         await loadConfig();
         return;
       }
@@ -957,20 +957,20 @@
       const url = $('service-url').value.trim();
       clearServiceErrors();
       if (!name) {
-        setServiceFieldError('service-name', 'service-name-error', '请输入服务名称');
+        setServiceFieldError('service-name', 'service-name-error', '请输入目标名称');
         $('service-name').focus();
         return;
       }
       if (!/^https?:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(url)) {
-        setServiceFieldError('service-url', 'service-url-error', '服务 URL 必须以 http:// 或 https:// 开头');
+        setServiceFieldError('service-url', 'service-url-error', '目标 URL 必须以 http:// 或 https:// 开头');
         $('service-url').focus();
         return;
       }
       const duplicatedName = serviceDefinitions.some((service) => service.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       const duplicatedUrl = serviceDefinitions.some((service) => service.url === url);
       if (duplicatedName || duplicatedUrl) {
-        if (duplicatedName) setServiceFieldError('service-name', 'service-name-error', '服务名称已存在');
-        if (duplicatedUrl) setServiceFieldError('service-url', 'service-url-error', '服务 URL 已存在');
+        if (duplicatedName) setServiceFieldError('service-name', 'service-name-error', '目标名称已存在');
+        if (duplicatedUrl) setServiceFieldError('service-url', 'service-url-error', '目标 URL 已存在');
         (duplicatedName ? $('service-name') : $('service-url')).focus();
         return;
       }
@@ -992,13 +992,13 @@
 
     async function startRun() {
       const proxyNames = proxies.map((proxy) => proxy.name);
-      if (!proxyNames.length) { notify('没有可测试的代理', true); return; }
+      if (!proxyNames.length) { notify('没有可探测的代理节点', true); return; }
       $('run').disabled = true;
       try {
         await api('/api/run', { method: 'POST', body: JSON.stringify({ ...formData(), proxies: proxyNames }) });
         $('secret').value = '';
         $('secret').placeholder = '密钥已保存，留空保持不变';
-        notify('采集已开始');
+        notify('延迟采样已开始');
         await refreshState();
       } catch (error) {
         notify(error.message, true);
@@ -1013,7 +1013,7 @@
 
     function paintState(state) {
       paintMonitor(state);
-      $('metric-status').textContent = state.running ? (state.stopping ? '停止中' : '采集中') : state.status;
+      $('metric-status').textContent = state.running ? (state.stopping ? '停止中' : '采样中') : state.status;
       $('run').disabled = state.running;
       $('stop').disabled = !state.running || state.stopping;
       $('metric-proxies').textContent = Object.keys(state.proxy_types || {}).length;
@@ -1036,7 +1036,7 @@
 
     async function refreshState() {
       try { paintState(await api('/api/state')); }
-      catch (error) { $('metric-status').textContent = '本机服务连接失败'; }
+      catch (error) { $('metric-status').textContent = '无法连接本机观测服务'; }
     }
 
     $('open-settings').addEventListener('click', () => $('settings-dialog').showModal());
