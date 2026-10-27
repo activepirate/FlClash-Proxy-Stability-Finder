@@ -1055,7 +1055,7 @@
       $('metric-proxies').textContent = Object.keys(state.proxy_types || {}).length;
       const samples = state.rows.reduce((total, row) => total + row.total, 0);
       const successes = state.rows.reduce((total, row) => total + row.success, 0);
-      $('metric-samples').textContent = samples;
+      $('metric-samples').textContent = `${samples}/${state.total_samples}`;
       $('metric-rate').textContent = samples ? `${(successes / samples * 100).toFixed(0)}%` : '—';
       if (state.proxy_types && Object.keys(state.proxy_types).length) {
         proxies = Object.entries(state.proxy_types).map(([name, type]) => ({ name, type }));

@@ -278,6 +278,7 @@ class RecorderService:
         self.status = '就绪'
         self.samples: dict[str, list[int | None]] = {}
         self.proxy_types: dict[str, str] = {}
+        self.total_samples = 0
         self.logs: list[str] = []
         self.stop_event = threading.Event()
         self.monitor_key: tuple[str, str, float] | None = None
@@ -425,6 +426,7 @@ class RecorderService:
                 'stopping': self.stopping,
                 'status': self.status,
                 'rows': rows,
+                'total_samples': self.total_samples,
                 'logs': list(self.logs),
                 'proxy_types': dict(self.proxy_types),
                 **monitor,
@@ -455,6 +457,7 @@ class RecorderService:
             self.status = f'准备采样 {len(selected)} 个代理节点'
             self.samples = {name: [] for name, _ in selected}
             self.proxy_types = dict(selected)
+            self.total_samples = len(selected) * int(values['rounds'])
             self.logs = []
             self.stop_event = threading.Event()
 

@@ -281,6 +281,42 @@ class WebTests(unittest.TestCase):
         self.assertEqual(service.logs[0], '记录 50')
         self.assertEqual(service.state()['logs'], [f'记录 {index}' for index in range(50, 250)])
 
+    def test_start_tracks_total_samples_for_selected_proxies_and_rounds(self):
+        class ControllerStub:
+            def __init__(self, *_args):
+                pass
+
+            def proxies(self):
+                return {
+                    'node-a': {'type': 'ss'},
+                    'node-b': {'type': 'vmess'},
+                    'node-c': {'type': 'trojan'},
+                }
+
+            def delay(self, *_args):
+                return 20
+
+        service = web.RecorderService()
+        values = {
+            'controller': 'http://127.0.0.1:9090',
+            'secret': '',
+            'request_timeout': 1,
+            'rounds': 3,
+            'interval': 0,
+            'concurrency': 2,
+            'timeout_ms': 1000,
+            'test_url': 'https://example.com',
+        }
+        with patch.object(web, 'Controller', ControllerStub):
+            service.start(values, ['node-a', 'node-c'])
+
+        self.assertEqual(service.state()['total_samples'], 6)
+
+    def test_homepage_displays_completed_and_total_sample_counts(self):
+        response = self.request('GET', '/')
+        page = response.read().decode()
+        self.assertIn("$('metric-samples').textContent = `${samples}/${state.total_samples}`;", page)
+
     def test_connections_monitor_records_sample(self):
         service = web.RecorderService()
         event = service.monitor_event
