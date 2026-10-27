@@ -136,6 +136,7 @@
     .service-status-item[data-status="failed"] .service-status-result { color: var(--red); }
     .service-status-actions { display: flex; justify-content: flex-end; gap: 6px; }
     .service-check-one { min-height: 28px; padding-inline: 8px; font-size: 12px; }
+    .service-edit { min-height: 28px; padding-inline: 8px; font-size: 12px; }
     .service-remove { min-height: 28px; padding-inline: 8px; color: var(--red); font-size: 12px; }
     .metric { min-height: 83px; padding: 13px 16px; border-right: 1px solid var(--line); }
     .metric:last-child { border-right: 0; }
@@ -476,6 +477,7 @@
     let proxyStats = [];
     let proxySorts = [];
     let serviceDefinitions = [];
+    let editingServiceUrl = null;
     let toastTimer;
 
     function parseTimestamp(value) {
@@ -551,6 +553,28 @@
       } else {
         setServiceFieldError('service-name', 'service-name-error', message);
       }
+    }
+
+    function openServiceDialog(service = null) {
+      editingServiceUrl = service?.url || null;
+      $('service-add-title').textContent = service ? '修改探测目标' : '添加探测目标';
+      $('service-add-dialog').querySelector('.subhead').textContent = service
+        ? '修改用于可达性探测的 HTTP 地址'
+        : '添加一个用于可达性探测的 HTTP 地址';
+      $('submit-service-add').textContent = service ? '保存修改' : '添加目标';
+      $('service-add-form').reset();
+      if (service) {
+        $('service-name').value = service.name;
+        $('service-url').value = service.url;
+      }
+      clearServiceErrors();
+      $('service-add-dialog').showModal();
+      $('service-name').focus();
+    }
+
+    function closeServiceDialog() {
+      editingServiceUrl = null;
+      $('service-add-dialog').close();
     }
 
     async function saveConfig(showMessage = true) {
@@ -886,13 +910,19 @@
         card.dataset.serviceUrl = service.url;
         card.dataset.status = 'idle';
         card.setAttribute('role', 'listitem');
-        card.innerHTML = `<div class="service-status-name"></div><div class="service-status-detail service-status-url"></div><div class="service-status-detail service-status-result">未探测</div><div class="service-status-detail" data-field="meta">—</div><div class="service-status-actions"><button class="button service-check-one" type="button">探测</button><button class="button service-remove" type="button">删除</button></div>`;
+        card.innerHTML = `<div class="service-status-name"></div><div class="service-status-detail service-status-url"></div><div class="service-status-detail service-status-result">未探测</div><div class="service-status-detail" data-field="meta">—</div><div class="service-status-actions"><button class="button service-edit" type="button">修改</button><button class="button service-check-one" type="button">探测</button><button class="button service-remove" type="button">删除</button></div>`;
         card.querySelector('.service-status-name').textContent = service.name;
         card.querySelector('.service-status-url').textContent = service.url;
+        card.querySelector('.service-edit').addEventListener('click', () => editService(service.url));
         card.querySelector('.service-check-one').addEventListener('click', () => checkServices([service.url]));
         card.querySelector('.service-remove').addEventListener('click', () => removeService(service.url));
         return card;
       }));
+    }
+
+    function editService(url) {
+      const service = serviceDefinitions.find((item) => item.url === url);
+      if (service) openServiceDialog(service);
     }
 
     function setServiceCard(url, result) {
@@ -952,9 +982,10 @@
       }
     }
 
-    async function addService() {
+    async function saveService() {
       const name = $('service-name').value.trim();
       const url = $('service-url').value.trim();
+      const originalUrl = editingServiceUrl;
       clearServiceErrors();
       if (!name) {
         setServiceFieldError('service-name', 'service-name-error', '请输入目标名称');
@@ -966,8 +997,10 @@
         $('service-url').focus();
         return;
       }
-      const duplicatedName = serviceDefinitions.some((service) => service.name.toLocaleLowerCase() === name.toLocaleLowerCase());
-      const duplicatedUrl = serviceDefinitions.some((service) => service.url === url);
+      const duplicatedName = serviceDefinitions.some((service) => (
+        service.url !== originalUrl && service.name.toLocaleLowerCase() === name.toLocaleLowerCase()
+      ));
+      const duplicatedUrl = serviceDefinitions.some((service) => service.url !== originalUrl && service.url === url);
       if (duplicatedName || duplicatedUrl) {
         if (duplicatedName) setServiceFieldError('service-name', 'service-name-error', '目标名称已存在');
         if (duplicatedUrl) setServiceFieldError('service-url', 'service-url-error', '目标 URL 已存在');
@@ -976,14 +1009,17 @@
       }
       const submit = $('submit-service-add');
       submit.disabled = true;
-      serviceDefinitions.push({ name, url });
+      const previousDefinitions = serviceDefinitions;
+      serviceDefinitions = originalUrl
+        ? serviceDefinitions.map((service) => service.url === originalUrl ? { name, url } : service)
+        : [...serviceDefinitions, { name, url }];
       try {
         await saveConfig();
         $('service-add-form').reset();
         renderServiceCards();
-        $('service-add-dialog').close();
+        closeServiceDialog();
       } catch (error) {
-        serviceDefinitions.pop();
+        serviceDefinitions = previousDefinitions;
         showServiceSaveError(error.message);
       } finally {
         submit.disabled = false;
@@ -1041,14 +1077,9 @@
 
     $('open-settings').addEventListener('click', () => $('settings-dialog').showModal());
     $('close-settings').addEventListener('click', () => $('settings-dialog').close());
-    $('open-service-add').addEventListener('click', () => {
-      $('service-add-form').reset();
-      clearServiceErrors();
-      $('service-add-dialog').showModal();
-      $('service-name').focus();
-    });
-    $('close-service-add').addEventListener('click', () => $('service-add-dialog').close());
-    $('cancel-service-add').addEventListener('click', () => $('service-add-dialog').close());
+    $('open-service-add').addEventListener('click', () => openServiceDialog());
+    $('close-service-add').addEventListener('click', closeServiceDialog);
+    $('cancel-service-add').addEventListener('click', closeServiceDialog);
     $('save').addEventListener('click', async () => {
       try {
         await saveConfig();
@@ -1066,7 +1097,7 @@
     $('service-url').addEventListener('input', () => setServiceFieldError('service-url', 'service-url-error'));
     $('service-add-form').addEventListener('submit', (event) => {
       event.preventDefault();
-      addService();
+      saveService();
     });
     $('run').addEventListener('click', startRun);
     $('stop').addEventListener('click', stopRun);
