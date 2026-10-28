@@ -45,6 +45,7 @@ SERVICE_TARGETS = {
     'baidu': ('百度', 'https://www.baidu.com/'),
 }
 MAX_SERVICE_CHECKS = 50
+SERVICE_PROXY_MODES = {'direct', 'default'}
 
 
 def _empty_monitor() -> dict[str, Any]:
@@ -135,11 +136,13 @@ def _normalize_exit_ip_payload(payload: Any, provider: str) -> dict[str, Any]:
     }
 
 
-def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
+def check_exit_ip(timeout: float, provider: str = 'ipapi', proxy_mode: str = 'direct') -> dict[str, Any]:
     """Return public IP and geolocation from the selected provider only."""
     if provider not in EXIT_IP_PROVIDERS:
         raise RuntimeError('不支持的 IP 查询服务')
-    opener = build_opener(ProxyHandler({}))
+    if proxy_mode not in SERVICE_PROXY_MODES:
+        raise ValueError('不支持的网络模式')
+    opener = build_opener(ProxyHandler({})) if proxy_mode == 'direct' else build_opener()
     try:
         payload = _read_exit_ip_payload(opener, EXIT_IP_PROVIDERS[provider], timeout)
         return _normalize_exit_ip_payload(payload, provider)
@@ -147,23 +150,33 @@ def check_exit_ip(timeout: float, provider: str = 'ipapi') -> dict[str, Any]:
         raise RuntimeError(f'{EXIT_IP_LABELS[provider]}：{error}') from error
 
 
-def check_service(name: str, timeout: float) -> dict[str, Any]:
-    """Check reachability with the host's normal URL opener configuration."""
+def check_service(name: str, timeout: float, proxy_mode: str = 'direct') -> dict[str, Any]:
+    """Check service reachability using the selected proxy mode."""
     target = SERVICE_TARGETS.get(name)
     if target is None:
         raise ValueError('不支持的探测目标')
     label, url = target
-    return _check_service_url(url, timeout, name=name, label=label)
+    return _check_service_url(url, timeout, name=name, label=label, proxy_mode=proxy_mode)
 
 
-def _check_service_url(url: str, timeout: float, *, name: str, label: str) -> dict[str, Any]:
+def _check_service_url(
+    url: str,
+    timeout: float,
+    *,
+    name: str,
+    label: str,
+    proxy_mode: str,
+) -> dict[str, Any]:
+    if proxy_mode not in SERVICE_PROXY_MODES:
+        raise ValueError('不支持的网络模式')
     request = Request(url, headers={'User-Agent': 'FlClashNetworkObserver/1.0'})
     started = time.monotonic()
     status_code = None
     error = None
     timed_out = False
     try:
-        with build_opener().open(request, timeout=timeout) as response:
+        opener = build_opener(ProxyHandler({})) if proxy_mode == 'direct' else build_opener()
+        with opener.open(request, timeout=timeout) as response:
             status_code = response.status
     except HTTPError as exception:
         # An HTTP response, including 4xx/5xx, proves the service was reached.
@@ -191,7 +204,10 @@ def check_services(
     timeout: float,
     names: list[Any] | None = None,
     urls: list[str] | None = None,
+    proxy_mode: str = 'direct',
 ) -> list[dict[str, Any]]:
+    if proxy_mode not in SERVICE_PROXY_MODES:
+        raise ValueError('不支持的网络模式')
     selected = list(SERVICE_TARGETS) if names is None and urls is None else (names or [])
     if selected and all(isinstance(item, dict) for item in selected):
         targets = []
@@ -217,7 +233,9 @@ def check_services(
         raise ValueError(f'单次最多检测 {MAX_SERVICE_CHECKS} 个服务')
     with ThreadPoolExecutor(max_workers=min(8, len(targets))) as executor:
         return list(executor.map(
-            lambda target: _check_service_url(target[1], timeout, name=target[0], label=target[2]),
+            lambda target: _check_service_url(
+                target[1], timeout, name=target[0], label=target[2], proxy_mode=proxy_mode
+            ),
             targets,
         ))
 
@@ -611,9 +629,11 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._json(200, public_config())
             elif path == '/api/exit-ip':
                 config = load_config()
-                provider = parse_qs(urlsplit(self.path).query).get('provider', ['ipapi'])[0]
+                query = parse_qs(urlsplit(self.path).query)
+                provider = query.get('provider', ['ipapi'])[0]
+                proxy_mode = query.get('proxy_mode', ['direct'])[0]
                 try:
-                    result = check_exit_ip(float(config['request_timeout']), provider)
+                    result = check_exit_ip(float(config['request_timeout']), provider, proxy_mode)
                 except RuntimeError as error:
                     result = {
                         'ip': None,
@@ -631,12 +651,19 @@ class RequestHandler(BaseHTTPRequestHandler):
                 query = parse_qs(urlsplit(self.path).query)
                 names = query.get('name')
                 urls = query.get('url')
+                proxy_mode = query.get('proxy_mode', ['direct'])[0]
                 if urls:
-                    services = check_services(float(config['request_timeout']), names, urls)
+                    services = check_services(
+                        float(config['request_timeout']), names, urls, proxy_mode=proxy_mode
+                    )
                 elif names:
-                    services = check_services(float(config['request_timeout']), names)
+                    services = check_services(
+                        float(config['request_timeout']), names, proxy_mode=proxy_mode
+                    )
                 else:
-                    services = check_services(float(config['request_timeout']), config['services'])
+                    services = check_services(
+                        float(config['request_timeout']), config['services'], proxy_mode=proxy_mode
+                    )
                 self._json(200, {'services': services})
             elif path == '/api/state':
                 self.service.ensure_monitor()

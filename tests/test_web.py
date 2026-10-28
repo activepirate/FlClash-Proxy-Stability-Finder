@@ -77,7 +77,7 @@ class WebTests(unittest.TestCase):
                 return Response()
 
         opener = Opener()
-        with patch.object(web, 'build_opener', return_value=opener):
+        with patch.object(web, 'build_opener', return_value=opener) as build_opener:
             result = web.check_exit_ip(3, 'ipapi')
         self.assertEqual(result['ip'], '2001:db8::1')
         self.assertEqual(result['version'], 6)
@@ -87,6 +87,31 @@ class WebTests(unittest.TestCase):
         self.assertEqual(result['utc_offset'], '+0400')
         self.assertIsNone(result['error'])
         self.assertEqual(opener.timeout, 3)
+        proxy_handler = build_opener.call_args.args[0]
+        self.assertIsInstance(proxy_handler, web.ProxyHandler)
+        self.assertEqual(proxy_handler.proxies, {})
+
+    def test_check_exit_ip_can_use_python_default_network_configuration(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b'{"ip":"203.0.113.10"}'
+
+        class Opener:
+            def open(self, _request, timeout):
+                self.timeout = timeout
+                return Response()
+
+        with patch.object(web, 'build_opener', return_value=Opener()) as build_opener:
+            result = web.check_exit_ip(3, 'ipapi', proxy_mode='default')
+        self.assertEqual(result['ip'], '203.0.113.10')
+        self.assertEqual(result['version'], 4)
+        build_opener.assert_called_once_with()
 
     def test_check_service_measures_normal_request_and_accepts_http_error_response(self):
         class Response:
@@ -105,13 +130,35 @@ class WebTests(unittest.TestCase):
                 return Response()
 
         opener = Opener()
-        with patch.object(web, 'build_opener', return_value=opener):
+        with patch.object(web, 'build_opener', return_value=opener) as build_opener:
             result = web.check_service('google', 4)
         self.assertEqual(result['status'], 'available')
         self.assertEqual(result['status_code'], 204)
         self.assertIsInstance(result['delay_ms'], int)
         self.assertEqual(opener.request.full_url, web.SERVICE_TARGETS['google'][1])
         self.assertEqual(opener.timeout, 4)
+        proxy_handler = build_opener.call_args.args[0]
+        self.assertIsInstance(proxy_handler, web.ProxyHandler)
+        self.assertEqual(proxy_handler.proxies, {})
+
+    def test_check_service_can_use_python_default_network_configuration(self):
+        class Response:
+            status = 204
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        class Opener:
+            def open(self, _request, timeout):
+                return Response()
+
+        with patch.object(web, 'build_opener', return_value=Opener()) as build_opener:
+            result = web.check_service('google', 4, proxy_mode='default')
+        self.assertEqual(result['status'], 'available')
+        build_opener.assert_called_once_with()
 
     def test_check_service_reports_timeout_without_delay(self):
         class Opener:
@@ -372,8 +419,14 @@ class WebTests(unittest.TestCase):
             'exit-ip-ipwho-timezone', 'exit-ip-ipwho-utc_offset', 'exit-ip-ipwho-meta',
         ):
             self.assertIn(f'id="{element_id}"', page)
-        self.assertNotIn('<span class="exit-ip-cell">服务</span>', page)
+        self.assertIn('<span class="exit-ip-cell">探测服务</span>', page)
         self.assertIn('<h2>出口 IP 探测</h2>', page)
+        self.assertIn('name="exit-ip-proxy-mode" value="direct" checked', page)
+        self.assertIn('name="exit-ip-proxy-mode" value="default"', page)
+        self.assertIn('class="exit-ip-toolbar"', page)
+        self.assertIn('name="service-proxy-mode" value="direct" checked', page)
+        self.assertIn('name="service-proxy-mode" value="default"', page)
+        self.assertIn('Python 默认网络配置', page)
         self.assertIn('.exit-ip-table-wrap { min-width: 0; }', page)
         self.assertIn('.exit-ip-table { width: 100%; min-width: 0; }', page)
         self.assertNotIn('overflow-x: auto;', page[page.index('.exit-ip-panel'):page.index('.proxy-summary-inline')])
@@ -384,6 +437,8 @@ class WebTests(unittest.TestCase):
         self.assertIn('grid-template-columns: minmax(0, 1.2fr)', page)
         self.assertIn('探测信息', page)
         self.assertIn('<span class="exit-ip-cell">探测服务</span>', page)
+        self.assertIn('class="module-options-caption">探测网络</span>', page)
+        self.assertIn('class="service-status-toolbar"', page)
         self.assertNotIn('<h2>延迟采样概览</h2>', page)
         self.assertNotIn('aria-label="观测概览"', page)
         self.assertIn('<h2>服务可达性</h2>', page)
@@ -430,7 +485,8 @@ class WebTests(unittest.TestCase):
         for provider, label in (('ipify', 'ipify'), ('ipapi', 'ipapi.co'), ('ipwho', 'ipwho.is'), ('ipwhois', 'ipwhois.app')):
             self.assertIn(f'data-provider="{provider}"', page)
             self.assertIn(f'>{label}</button>', page)
-        self.assertNotIn('>探测服务</button>', page)
+        self.assertNotIn('name="exit-ip-provider"', page)
+        self.assertNotIn('id="exit-ip-check"', page)
         self.assertNotIn('fallback', page)
         self.assertNotIn('await refreshExitIp()', page)
         for removed_control in ('id="select-all"', 'id="select-none"', 'id="select-toggle"', 'class="proxy-check'):
@@ -497,11 +553,24 @@ class WebTests(unittest.TestCase):
                 'checked_at': '2026-10-25T00:00:00Z',
                 'error': None,
             },
-        ):
+        ) as check:
             response = self.request('GET', '/api/exit-ip?provider=ipwho')
         payload = json.loads(response.read())
         self.assertEqual(response.status, 200)
         self.assertEqual(payload['ip'], '203.0.113.10')
+        check.assert_called_once_with(2.0, 'ipwho', 'direct')
+
+    def test_exit_ip_api_passes_selected_network_mode(self):
+        expected = {'ip': '203.0.113.10', 'version': 4, 'error': None}
+        with patch.object(
+            web,
+            'load_config',
+            return_value={'request_timeout': 2},
+        ), patch.object(web, 'check_exit_ip', return_value=expected) as check:
+            response = self.request('GET', '/api/exit-ip?provider=ipwho&proxy_mode=default')
+        self.assertEqual(response.status, 200)
+        self.assertEqual(json.loads(response.read()), expected)
+        check.assert_called_once_with(2.0, 'ipwho', 'default')
 
     def test_services_api_checks_requested_services(self):
         expected = [{'name': 'github', 'status': 'available', 'delay_ms': 42}]
@@ -510,11 +579,11 @@ class WebTests(unittest.TestCase):
             'load_config',
             return_value={'request_timeout': 2},
         ), patch.object(web, 'check_services', return_value=expected) as check:
-            response = self.request('GET', '/api/services?name=github')
+            response = self.request('GET', '/api/services?name=github&proxy_mode=default')
         payload = json.loads(response.read())
         self.assertEqual(response.status, 200)
         self.assertEqual(payload['services'], expected)
-        check.assert_called_once_with(2.0, ['github'])
+        check.assert_called_once_with(2.0, ['github'], proxy_mode='default')
 
     def test_services_api_uses_configured_services_by_default(self):
         configured = [
@@ -530,7 +599,7 @@ class WebTests(unittest.TestCase):
             response = self.request('GET', '/api/services')
         self.assertEqual(response.status, 200)
         self.assertEqual(json.loads(response.read())['services'], expected)
-        check.assert_called_once_with(2.0, configured)
+        check.assert_called_once_with(2.0, configured, proxy_mode='direct')
 
     def test_services_api_accepts_custom_url(self):
         expected = [{'name': 'https://example.com/health', 'status': 'failed'}]
@@ -542,7 +611,7 @@ class WebTests(unittest.TestCase):
             response = self.request('GET', '/api/services?url=https%3A%2F%2Fexample.com%2Fhealth')
         self.assertEqual(response.status, 200)
         self.assertEqual(json.loads(response.read())['services'], expected)
-        check.assert_called_once_with(2.0, None, ['https://example.com/health'])
+        check.assert_called_once_with(2.0, None, ['https://example.com/health'], proxy_mode='direct')
 
     def test_rejects_non_local_host(self):
         response = self.request('GET', '/api/state', headers={'Host': 'example.com'})

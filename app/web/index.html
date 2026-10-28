@@ -93,6 +93,14 @@
     .exit-ip-panel { min-height: 82px; padding: 0 16px 12px; }
     .module-head { min-height: 42px; display: flex; align-items: center; border-bottom: 1px solid var(--line); }
     .exit-ip-panel .module-head { margin-bottom: 8px; }
+    .exit-ip-toolbar, .service-status-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+    .exit-ip-toolbar { padding: 0 0 8px; }
+    .service-status-toolbar { padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .module-options { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 12px; margin: 0; padding: 0; border: 0; }
+    .module-options-caption { color: var(--muted); font-size: 11px; }
+    .module-options label { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-size: 12px; white-space: nowrap; }
+    .module-options input { accent-color: var(--green); }
+    .service-status-actions { display: flex; justify-content: flex-end; gap: 6px; margin-left: auto; }
     .exit-ip-table-wrap { min-width: 0; }
     .exit-ip-table { width: 100%; min-width: 0; }
     .exit-ip-row { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)) minmax(0, 1.2fr) minmax(72px, .85fr); align-items: center; gap: 8px; min-height: 48px; }
@@ -104,7 +112,10 @@
     .exit-ip-provider { width: 100%; padding-inline: 8px; }
     .exit-ip-provider:disabled { cursor: wait; }
     .proxy-summary-inline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
-    .service-status-head { justify-content: space-between; padding-inline: 14px; }
+    .service-status-head { justify-content: flex-start; padding-inline: 14px; }
+    .service-network-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 12px; margin: 0; padding: 0; border: 0; }
+    .service-network-mode label { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-size: 12px; white-space: nowrap; }
+    .service-network-mode input { accent-color: var(--green); }
     .service-status-list-header {
       display: grid;
       grid-template-columns: minmax(120px, .75fr) minmax(0, 1.8fr) minmax(0, 1.35fr) minmax(0, .8fr) auto;
@@ -267,7 +278,8 @@
         padding: 10px 12px;
       }
       .service-status-actions { grid-column: 2; grid-row: 1 / span 4; align-self: center; }
-      .service-status-head { align-items: flex-start; flex-direction: column; padding-block: 10px; }
+      .exit-ip-toolbar, .service-status-toolbar { align-items: flex-start; }
+      .service-status-toolbar { padding-inline: 12px; }
     }
   </style>
 </head>
@@ -281,6 +293,13 @@
         <div class="primary-column">
           <div class="panel exit-ip-panel" aria-label="出口 IP">
             <div class="module-head"><h2>出口 IP 探测</h2></div>
+            <div class="exit-ip-toolbar">
+              <div class="service-network-mode" role="radiogroup" aria-label="出口 IP 探测网络">
+                <span class="module-options-caption">探测网络</span>
+                <label><input type="radio" name="exit-ip-proxy-mode" value="direct" checked>直连（默认）</label>
+                <label><input type="radio" name="exit-ip-proxy-mode" value="default">Python 默认网络配置</label>
+              </div>
+            </div>
             <div class="exit-ip-table-wrap">
               <div class="exit-ip-table">
                 <div class="exit-ip-row exit-ip-header" role="row">
@@ -335,6 +354,13 @@
           <section class="panel" aria-label="服务可达性">
             <div class="section-head service-status-head">
               <div class="section-title"><h2>服务可达性</h2><span class="endpoint">本机网络探测</span></div>
+            </div>
+            <div class="service-status-toolbar">
+              <div class="service-network-mode" role="radiogroup" aria-label="探测网络">
+                <span class="module-options-caption">探测网络</span>
+                <label><input type="radio" name="service-proxy-mode" value="direct" checked>直连（默认）</label>
+                <label><input type="radio" name="service-proxy-mode" value="default">Python 默认网络配置</label>
+              </div>
               <div class="service-status-actions">
                 <button class="button" id="open-service-add" type="button">添加探测目标</button>
                 <button class="button primary" id="service-check-all" type="button">探测全部</button>
@@ -879,15 +905,18 @@
       });
     }
 
-    async function refreshExitIp(provider = 'ipapi', showError = false) {
+    async function refreshExitIp(provider, showError = false) {
       const row = document.querySelector(`[data-provider-row="${provider}"]`);
       const button = row.querySelector('.exit-ip-provider');
       const status = $('exit-ip-status');
+      const proxyMode = document.querySelector('input[name="exit-ip-proxy-mode"]:checked').value;
       setExitIpRow(provider, Object.fromEntries(exitIpFields.map((field) => [field, '探测中…'])));
-      status.textContent = `通过本机网络探测 ${exitIpProviderLabels[provider] || provider}`;
+      const networkLabel = proxyMode === 'direct' ? '直连' : 'Python 默认网络配置';
+      status.textContent = `通过${networkLabel}探测 ${exitIpProviderLabels[provider] || provider}`;
       button.disabled = true;
       try {
-        const data = await api(`/api/exit-ip?provider=${encodeURIComponent(provider)}`);
+        const query = new URLSearchParams({ provider, proxy_mode: proxyMode });
+        const data = await api(`/api/exit-ip?${query}`);
         if (data.ip) {
           const checkedAt = formatChinaTime(data.checked_at) || '刚刚';
           setExitIpRow(provider, { ...data, meta: `IPv${data.version} · ${checkedAt}` });
@@ -955,8 +984,11 @@
       });
       $('service-check-all').disabled = true;
       try {
-        const query = urls ? urls.map((url) => `url=${encodeURIComponent(url)}`).join('&') : '';
-        const data = await api(`/api/services${query ? `?${query}` : ''}`);
+        const query = new URLSearchParams({
+          proxy_mode: document.querySelector('input[name="service-proxy-mode"]:checked').value,
+        });
+        urls?.forEach((url) => query.append('url', url));
+        const data = await api(`/api/services?${query}`);
         data.services.forEach((result) => setServiceCard(result.url, result));
       } catch (error) {
         buttons.forEach((button) => {
