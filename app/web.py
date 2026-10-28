@@ -9,7 +9,6 @@ import math
 import socket
 import threading
 import time
-import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -730,7 +729,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='启动 FlClash 代理稳定性筛选器')
     parser.add_argument('--host', default='127.0.0.1', help='只能使用本机回环地址')
     parser.add_argument('--port', type=int, default=8765)
-    parser.add_argument('--no-browser', action='store_true', help='不自动打开浏览器')
     args = parser.parse_args()
     if args.host not in {'127.0.0.1', 'localhost', '::1'}:
         parser.error('Web 界面只允许绑定到本机回环地址')
@@ -747,8 +745,6 @@ def main() -> None:
     address = f'http://{host}:{args.port}/'
     print(f'FlClash 代理稳定性筛选器已启动：{address}')
     print('按 Ctrl+C 停止服务。')
-    if not args.no_browser:
-        threading.Timer(0.4, webbrowser.open, args=(address,)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
