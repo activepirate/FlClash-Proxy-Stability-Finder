@@ -25,6 +25,10 @@ from app.recorder import Controller, run_session, select_proxies, summarize
 
 
 PAGE = Path(__file__).parent / 'web' / 'index.html'
+STATIC_FILES = {
+    '/static/app.js': (PAGE.parent / 'app.js', 'text/javascript; charset=utf-8'),
+    '/static/styles.css': (PAGE.parent / 'styles.css', 'text/css; charset=utf-8'),
+}
 DIRECT_CHAINS = {'DIRECT', 'PASS', 'COMPATIBLE'}
 MAX_LOG_ENTRIES = 200
 EXIT_IP_PROVIDERS = {
@@ -62,6 +66,11 @@ def _empty_monitor() -> dict[str, Any]:
 @lru_cache(maxsize=1)
 def _page_body() -> bytes:
     return PAGE.read_bytes()
+
+
+@lru_cache(maxsize=None)
+def _static_body(path: str) -> bytes:
+    return STATIC_FILES[path][0].read_bytes()
 
 
 def _utc_timestamp() -> str:
@@ -619,6 +628,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                 body = _page_body()
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Referrer-Policy', 'no-referrer')
+                self.end_headers()
+                self.wfile.write(body)
+            elif path in STATIC_FILES:
+                body = _static_body(path)
+                self.send_response(200)
+                self.send_header('Content-Type', STATIC_FILES[path][1])
                 self.send_header('Content-Length', str(len(body)))
                 self.send_header('Cache-Control', 'no-store')
                 self.send_header('X-Content-Type-Options', 'nosniff')

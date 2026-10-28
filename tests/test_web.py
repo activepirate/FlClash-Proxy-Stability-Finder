@@ -362,7 +362,19 @@ class WebTests(unittest.TestCase):
     def test_homepage_displays_completed_and_total_sample_counts(self):
         response = self.request('GET', '/')
         page = response.read().decode()
-        self.assertIn("$('metric-samples').textContent = `${samples}/${state.total_samples}`;", page)
+        app_response = self.request('GET', '/static/app.js')
+        self.assertIn('<script src="/static/app.js" defer></script>', page)
+        self.assertIn("$('metric-samples').textContent = `${samples}/${state.total_samples}`;", app_response.read().decode())
+
+    def test_static_assets_are_served_separately(self):
+        for path, content_type, marker in (
+            ('/static/styles.css', 'text/css', ':root {'),
+            ('/static/app.js', 'text/javascript', "$('metric-samples').textContent"),
+        ):
+            response = self.request('GET', path)
+            self.assertEqual(response.status, 200)
+            self.assertIn(content_type, response.getheader('Content-Type'))
+            self.assertIn(marker, response.read().decode())
 
     def test_connections_monitor_records_sample(self):
         service = web.RecorderService()
@@ -406,6 +418,9 @@ class WebTests(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertIn('text/html', response.getheader('Content-Type'))
         page = response.read().decode()
+        for asset_path in ('/static/styles.css', '/static/app.js'):
+            asset_response = self.request('GET', asset_path)
+            page += asset_response.read().decode()
         self.assertIn('FlClash 代理稳定性筛选器', page)
         self.assertNotIn('<div class="top-status">', page)
         for endpoint in ('控制器遥测', '活动连接', '控制器运行日志', '/traffic', '/logs', '/connections'):
