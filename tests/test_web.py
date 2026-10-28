@@ -438,8 +438,10 @@ class WebTests(unittest.TestCase):
         self.assertNotIn('selection-count', page)
         for row_limit in ('collection-log-limit', 'connection-limit', 'controller-log-limit', 'value="10" selected'):
             self.assertIn(row_limit, page)
-        for sort_header in ('data-sort-key="rate"', 'data-sort-key="average"', 'data-sort-key="jitter"', 'active-sorts', 'sort-order', 'sort-remove', '按成功率排序', '按平均延迟排序', '按抖动排序', 'aria-sort="none"'):
+        for sort_header in ('data-sort-key="rate"', 'data-sort-key="minimum"', 'data-sort-key="maximum"', 'data-sort-key="average"', 'data-sort-key="jitter"', 'active-sorts', 'sort-order', 'sort-remove', '按成功率排序', '按最小延迟排序', '按最大延迟排序', '按平均延迟排序', '按抖动排序', 'aria-sort="none"'):
             self.assertIn(sort_header, page)
+        self.assertLess(page.index('data-sort-label="最小延迟"'), page.index('data-sort-label="平均延迟"'))
+        self.assertLess(page.index('data-sort-label="最大延迟"'), page.index('data-sort-label="平均延迟"'))
         self.assertNotIn('id="proxy-sort"', page)
         self.assertIn('grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr)', page)
         self.assertIn('<div class="connection-column">', page)

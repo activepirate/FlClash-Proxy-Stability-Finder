@@ -15,8 +15,12 @@ class RecorderTests(unittest.TestCase):
         self.assertEqual(rows[0]['proxy'], 'node-a')
         self.assertEqual(rows[0]['success'], 2)
         self.assertEqual(rows[0]['rate'], 2 / 3)
+        self.assertEqual(rows[0]['minimum'], 100)
+        self.assertEqual(rows[0]['maximum'], 130)
         self.assertEqual(rows[0]['average'], 115)
         self.assertEqual(rows[0]['jitter'], 30)
+        self.assertTrue(math.isnan(rows[1]['minimum']))
+        self.assertTrue(math.isnan(rows[1]['maximum']))
         self.assertTrue(math.isnan(rows[1]['average']))
 
     def test_select_proxies_skips_builtin_and_strategy_groups(self):

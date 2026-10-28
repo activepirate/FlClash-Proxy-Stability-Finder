@@ -407,7 +407,7 @@ class RecorderService:
         with self.lock:
             rows = summarize(self.samples) if self.samples else []
             for row in rows:
-                for key in ('average', 'jitter'):
+                for key in ('minimum', 'maximum', 'average', 'jitter'):
                     if math.isnan(row[key]):
                         row[key] = None
             monitor = {

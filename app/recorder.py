@@ -108,6 +108,8 @@ def summarize(samples: dict[str, list[int | None]]) -> list[dict[str, Any]]:
                 'success': len(successful),
                 'total': len(values),
                 'rate': len(successful) / len(values) if values else 0,
+                'minimum': min(successful) if successful else math.nan,
+                'maximum': max(successful) if successful else math.nan,
                 'average': statistics.fmean(successful) if successful else math.nan,
                 'jitter': statistics.fmean(adjacent_deltas) if adjacent_deltas else math.nan,
             }

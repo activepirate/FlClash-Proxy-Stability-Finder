@@ -367,10 +367,12 @@
                 <thead><tr>
                   <th>代理</th><th class="wide-only">类型</th><th class="number">进度</th>
                   <th class="number"><button class="sort-button" type="button" data-sort-key="rate" data-sort-label="成功率" aria-label="按成功率排序，当前未排序" aria-sort="none">成功率 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+                  <th class="number"><button class="sort-button" type="button" data-sort-key="minimum" data-sort-label="最小延迟" aria-label="按最小延迟排序，当前未排序" aria-sort="none">最小延迟 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+                  <th class="number"><button class="sort-button" type="button" data-sort-key="maximum" data-sort-label="最大延迟" aria-label="按最大延迟排序，当前未排序" aria-sort="none">最大延迟 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
                   <th class="number"><button class="sort-button" type="button" data-sort-key="average" data-sort-label="平均延迟" aria-label="按平均延迟排序，当前未排序" aria-sort="none">平均延迟 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
                   <th class="number"><button class="sort-button" type="button" data-sort-key="jitter" data-sort-label="抖动" aria-label="按抖动排序，当前未排序" aria-sort="none">抖动 <span class="sort-order" aria-hidden="true"></span><span class="sort-indicator" aria-hidden="true">↕</span></button></th>
                 </tr></thead>
-                <tbody id="proxy-rows"><tr><td colspan="6" class="empty">保存连接设置后刷新代理列表</td></tr></tbody>
+                <tbody id="proxy-rows"><tr><td colspan="8" class="empty">保存连接设置后刷新代理列表</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -699,6 +701,8 @@
         const cells = [
           stat ? `${stat.total}/${$('rounds').value || 0}` : '—',
           stat ? `${(stat.rate * 100).toFixed(0)}%` : '—',
+          stat && stat.minimum !== null ? `${stat.minimum.toFixed(1)} ms` : '—',
+          stat && stat.maximum !== null ? `${stat.maximum.toFixed(1)} ms` : '—',
           stat && stat.average !== null ? `${stat.average.toFixed(1)} ms` : '—',
           stat && stat.jitter !== null ? `${stat.jitter.toFixed(1)} ms` : '—',
         ];
@@ -711,7 +715,7 @@
     function renderTableMessage(body, message) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 6;
+      cell.colSpan = 8;
       cell.className = 'empty';
       cell.textContent = message;
       row.append(cell);
